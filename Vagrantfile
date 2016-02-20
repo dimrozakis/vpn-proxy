@@ -38,7 +38,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Create a `server` vm, connected to 2 proxies.
   config.vm.define "server", primary: true do |server|
     server.vm.hostname = "server"
-    server.vm.network "private_network", ip: "192.168.75.100"
+    server.vm.network "private_network",
+      virtualbox__intnet: "vpnproxy-wan",
+      ip: "192.168.75.100"
     server.vm.post_up_message = TOPOLOGY
     # Set up openvpn server
     (1..2).each do |i|
@@ -48,7 +50,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       server.vm.provision "shell",
         run: "always",
         inline: "/vagrant/scripts/server.sh client-conf " \
-                "-r 192.168.75.100 #{i} > /vagrant/proxy#{i}.sh"
+                "-r 192.168.75.100 #{i} > /vagrant/scripts/proxy#{i}.sh"
     end
   end
 
@@ -57,12 +59,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   (1..2).each do |i|
     config.vm.define "proxy#{i}" do |proxy|
       proxy.vm.hostname = "proxy#{i}"
-      proxy.vm.network "private_network", ip: "192.168.75.#{i+100}"
-      proxy.vm.network "private_network", ip: "10.75.75.10",
-        virtualbox__intnet: "int#{i}"
+      proxy.vm.network "private_network",
+        virtualbox__intnet: "vpnproxy-wan",
+        ip: "192.168.75.#{i+100}"
+      proxy.vm.network "private_network",
+        virtualbox__intnet: "vpnproxy-lan#{i}",
+        ip: "10.75.75.10"
       proxy.vm.provision "shell",
         run: "always",
-        inline: "bash /vagrant/proxy#{i}.sh"
+        inline: "bash /vagrant/scripts/proxy#{i}.sh"
     end
   end
 
@@ -71,8 +76,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   (1..2).each do |i|
     config.vm.define "target#{i}" do |target|
       target.vm.hostname = "target#{i}"
-      target.vm.network "private_network", ip: "10.75.75.75",
-        virtualbox__intnet: "int#{i}"
+      target.vm.network "private_network",
+        virtualbox__intnet: "vpnproxy-lan#{i}",
+        ip: "10.75.75.75"
     end
   end
 

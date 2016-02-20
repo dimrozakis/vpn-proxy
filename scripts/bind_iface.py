@@ -23,7 +23,12 @@ def bind_iface(iface=''):
 
 def test(url, iface=''):
     with bind_iface(iface):
-        print requests.get(url).text.strip()
+        try:
+            print requests.get(url, timeout=2).text.strip()
+        except Exception as exc:
+            print repr(exc)
+            return False
+        return True
 
 
 if __name__ == '__main__':
@@ -31,4 +36,4 @@ if __name__ == '__main__':
     iface = sys.argv[2] if len(sys.argv) > 2 else ''
     if not (url.startswith('http://') or url.startswith('https://')):
         url = 'http://' + url
-    test(url, iface)
+    sys.exit(0 if test(url, iface) else 1)
