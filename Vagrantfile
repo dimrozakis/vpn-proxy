@@ -4,30 +4,46 @@
 VAGRANTFILE_API_VERSION = "2"
 
 TOPOLOGY = <<EOF
-      NETWORK TOPOLOGY (RAW)               NETWORK TOPOLOGY (VPN)
-      ======================               ======================
+                            NETWORK TOPOLOGY
+                            ================
 
-             --------                             --------
-             |SERVER|                             |SERVER|
-             --------                             --------
-          192.168.75.100                172.17.17.1 |  | 172.17.17.3
-                 |                                  |  |
-       __________|_________                 ________|  |________
-       |        WAN       |                 |       VPN's      |
-       |                  |                 |                  |
-192.168.75.101     192.168.75.102      172.17.17.2        172.17.17.4
-   --------            --------         --------            --------
-   |PROXY1|            |PROXY2|         |PROXY1|            |PROXY2|
-   --------            --------         --------            --------
-  10.75.75.10        10.75.75.10       10.75.75.10        10.75.75.10
-       |                  |                 |                  |
-       | Private networks |                 | Private networks |
-       |  with conflicts  |                 |  with conflicts  |
-       |                  |                 |                  |
-  10.75.75.75        10.75.75.75       10.75.75.75        10.75.75.75
-   ---------          ---------         ---------          ---------
-   |TARGET1|          |TARGET2|         |TARGET1|          |TARGET2|
-   ---------          ---------         ---------          ---------
+                                --------
+             tun1: 172.17.17.1 |        | tun2: 172.17.17.3
+                          #####| SERVER |#####
+ OpenVPN point to point  #     |        |     #  OpenVPN point to point
+        tunnel over WAN  #      --------      #  tunnel over WAN
+                         #   192.168.75.100   #
+                #########           |          ##########
+               #                    |                    #
+               #                    |                    #
+               #   _________________|_________________   #
+               #  |               (WAN)               |  #
+               #  |                                   |  #
+               #  |                                   |  #
+   172.17.17.2 #  | 192.168.75.101     192.168.75.102 |  # 172.17.17.4
+             --------                               --------
+            |        | 10.75.75.10     10.75.75.10 |        |
+            | PROXY1 |____                     ____| PROXY2 |
+            |        |    |                   |    |        |
+             --------     |  Private networks |     --------
+            10.75.76.10   |    with conflict  |    10.75.77.10
+                 |        |                   |         |
+                 |        |  LAN1       LAN2  |         |
+           LAN3  |        |                   |         |  LAN4
+                 |        |                   |         |
+                 |   10.75.75.75         10.75.75.75    |
+                 |    ---------          ---------      |
+                 |   |         |        |         |     |
+                 |   | TARGET1 |        | TARGET2 |     |
+                 |   |         |        |         |     |
+                 |    ---------          ---------      |
+                 |                                      |
+            10.75.76.75                            10.75.77.75
+             ---------                              ---------
+            |         |                            |         |
+            | TARGET3 |                            | TARGET4 |
+            |         |                            |         |
+             ---------                              ---------
 EOF
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
@@ -65,6 +81,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       proxy.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{i}",
         ip: "10.75.75.10"
+      proxy.vm.network "private_network",
+        virtualbox__intnet: "vpnproxy-lan#{2+i}",
+        ip: "10.75.#{75+i}.10"
       proxy.vm.provision "shell",
         run: "always",
         inline: "bash /vagrant/scripts/proxy#{i}.sh"
@@ -79,6 +98,17 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       target.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{i}",
         ip: "10.75.75.75"
+    end
+  end
+
+  # Create two more `target` vm's, each connected to its corresponding `proxy`
+  # vm.
+  (1..2).each do |i|
+    config.vm.define "target#{2+i}" do |target|
+      target.vm.hostname = "target#{2+i}"
+      target.vm.network "private_network",
+        virtualbox__intnet: "vpnproxy-lan#{2+i}",
+        ip: "10.75.#{75+i}.75"
     end
   end
 
