@@ -41,6 +41,8 @@ test_selfprobe() {
     echo -e $HEADER
     assert_probe server 127.0.0.1 server
     assert_probe server 192.168.75.100 server
+    assert_probe server 172.17.17.1 server
+    assert_probe server 172.17.17.3 server
     echo
     echo "### proxy1 ###"
     echo -e $HEADER
@@ -48,6 +50,7 @@ test_selfprobe() {
     assert_probe proxy1 192.168.75.101 proxy1
     assert_probe proxy1 10.75.75.10 proxy1
     assert_probe proxy1 10.75.76.10 proxy1
+    assert_probe proxy1 172.17.17.2 proxy1
     echo
     echo "### proxy2 ###"
     echo -e $HEADER
@@ -55,6 +58,7 @@ test_selfprobe() {
     assert_probe proxy2 192.168.75.102 proxy2
     assert_probe proxy2 10.75.75.10 proxy2
     assert_probe proxy2 10.75.77.10 proxy2
+    assert_probe proxy2 172.17.17.4 proxy2
     echo
     echo "### target1 ###"
     echo -e $HEADER
@@ -128,30 +132,85 @@ test_server_targets() {
     assert_probe server 10.75.77.75 target4 tun2
 }
 
+test_targets_server() {
+    echo "Test that the targets can probe the server through the proxies"
+    echo "--------------------------------------------------------------"
+    echo
+    for i in {1..2}; do
+        local ip="172.17.17.$((2*$i-1))"
+        local rule="PREROUTING -t nat -p tcp --dport 81 -j DNAT --to $ip:80"
+        local cmd="sudo iptables -C $rule || sudo iptables -A $rule"
+        echo "Forward all traffic coming to proxy$i:81 to server:80:"
+        echo "  iptables -A $rule"
+        vagrant ssh proxy$i -c "$cmd" 2> /dev/null
+    done
+    echo
+    echo -e $HEADER
+    assert_probe target1 10.75.75.10:81 server
+    assert_probe target3 10.75.76.10:81 server
+    assert_probe target2 10.75.75.10:81 server
+    assert_probe target4 10.75.77.10:81 server
+}
+
 test() {
     echo "Testing using $MODE"
     echo "==================="
     echo
     echo
-    test_selfprobe
-    echo
-    echo
-    test_proxy_targets
-    echo
-    echo
-    test_server_proxies
-    echo
-    echo
+    if [ "$SELF_TEST" ]; then
+        test_selfprobe
+        echo
+        echo
+    fi
+    if [ "$LINK_TEST" ]; then
+        test_proxy_targets
+        echo
+        echo
+        test_server_proxies
+        echo
+        echo
+    fi
     test_server_targets
+    echo
+    echo
+    test_targets_server
     echo
     echo
     echo "Failed: $(($TOTAL-$OK))/$TOTAL"
 }
 
-if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-    echo "Usage: $0 [-h|--help] [curl|python]"
-    exit
-fi
-MODE=$1
-if [ -z "$MODE" ]; then MODE="curl"; fi
+MODE="curl"
+HELP="Usage: $0 [options]
+
+Test networking in vagrant setup.
+
+Options:
+-h      Show this help message.
+-s      Test that each server can locally see its webserver on all ifaces.
+-l      Test that each server can probe each other directly connected server.
+-p      Use python requests instead of curl to perform testing.
+"
+
+while getopts "hslp" opt; do
+    case $opt in
+        h)
+            echo "$HELP"
+            exit
+            ;;
+        s)
+            SELF_TEST=1
+            ;;
+        l)
+            LINK_TEST=1
+            ;;
+        p)
+            MODE="python"
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            echo "$HELP" >&2
+            exit 1
+            ;;
+    esac
+done
 test
