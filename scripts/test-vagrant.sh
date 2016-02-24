@@ -41,8 +41,8 @@ test_selfprobe() {
     echo -e $HEADER
     assert_probe server 127.0.0.1 server
     assert_probe server 192.168.75.100 server
-    assert_probe server 172.17.17.1 server
-    assert_probe server 172.17.17.3 server
+    assert_probe server 172.17.17.2 server
+    assert_probe server 172.17.17.4 server
     echo
     echo "### proxy1 ###"
     echo -e $HEADER
@@ -50,7 +50,7 @@ test_selfprobe() {
     assert_probe proxy1 192.168.75.101 proxy1
     assert_probe proxy1 10.75.75.10 proxy1
     assert_probe proxy1 10.75.76.10 proxy1
-    assert_probe proxy1 172.17.17.2 proxy1
+    assert_probe proxy1 172.17.17.3 proxy1
     echo
     echo "### proxy2 ###"
     echo -e $HEADER
@@ -58,7 +58,7 @@ test_selfprobe() {
     assert_probe proxy2 192.168.75.102 proxy2
     assert_probe proxy2 10.75.75.10 proxy2
     assert_probe proxy2 10.75.77.10 proxy2
-    assert_probe proxy2 172.17.17.4 proxy2
+    assert_probe proxy2 172.17.17.5 proxy2
     echo
     echo "### target1 ###"
     echo -e $HEADER
@@ -126,10 +126,10 @@ test_server_targets() {
     echo "--------------------------------------------------------------"
     echo
     echo -e $HEADER
-    assert_probe server 10.75.75.75 target1 tun1
-    assert_probe server 10.75.75.75 target2 tun2
-    assert_probe server 10.75.76.75 target3 tun1
-    assert_probe server 10.75.77.75 target4 tun2
+    assert_probe server 10.75.75.75 target1 vpn-proxy-tun1
+    assert_probe server 10.75.75.75 target2 vpn-proxy-tun2
+    assert_probe server 10.75.76.75 target3 vpn-proxy-tun1
+    assert_probe server 10.75.77.75 target4 vpn-proxy-tun2
 }
 
 test_targets_server() {
@@ -137,7 +137,7 @@ test_targets_server() {
     echo "--------------------------------------------------------------"
     echo
     for i in {1..2}; do
-        local ip="172.17.17.$((2*$i-1))"
+        local ip="172.17.17.$((2*$i))"
         local rule="PREROUTING -t nat -p tcp --dport 81 -j DNAT --to $ip:80"
         local cmd="sudo iptables -C $rule || sudo iptables -A $rule"
         echo "Forward all traffic coming to proxy$i:81 to server:80:"

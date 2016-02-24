@@ -7,8 +7,9 @@ TOPOLOGY = <<EOF
                             NETWORK TOPOLOGY
                             ================
 
+                             192.168.69.100
                                 --------
-             tun1: 172.17.17.1 |        | tun2: 172.17.17.3
+   vpn-proxy-tun1: 172.17.17.2 |        | vpn-proxy-tun2: 172.17.17.4
                           #####| SERVER |#####
  OpenVPN point to point  #     |        |     #  OpenVPN point to point
         tunnel over WAN  #      --------      #  tunnel over WAN
@@ -20,7 +21,7 @@ TOPOLOGY = <<EOF
                #  |               (WAN)               |  #
                #  |                                   |  #
                #  |                                   |  #
-   172.17.17.2 #  | 192.168.75.101     192.168.75.102 |  # 172.17.17.4
+   172.17.17.3 #  | 192.168.75.101     192.168.75.102 |  # 172.17.17.5
              --------                               --------
             |        | 10.75.75.10     10.75.75.10 |        |
             | PROXY1 |____                     ____| PROXY2 |
@@ -54,19 +55,38 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Create a `server` vm, connected to 2 proxies.
   config.vm.define "server", primary: true do |server|
     server.vm.hostname = "server"
+    server.vm.network "private_network", ip: "192.168.69.100"
     server.vm.network "private_network",
       virtualbox__intnet: "vpnproxy-wan",
       ip: "192.168.75.100"
     server.vm.post_up_message = TOPOLOGY
+    server.vm.provision "shell",
+      inline: "apt-get update && apt-get install -y openvpn python python-pip"
+    server.vm.provision "shell",
+      run: "always",
+      inline: "pip install -U django netaddr ipython"
+    server.vm.provision "shell",
+      run: "always",
+      inline: "cd /vagrant/vpn-proxy/ && " \
+              "./manage.py migrate && " \
+              "nohup ./manage.py runserver 0.0.0.0:8080 " \
+              "> /var/log/django.log 2>&1 </dev/null & sleep 5"
+    server.vm.provision "shell",
+      run: "always",
+      inline: "mkdir -p /vagrant/tmp"
     # Set up openvpn server
     (1..2).each do |i|
       server.vm.provision "shell",
-        run: "always",
-        inline: "/vagrant/scripts/server.sh start -i -f #{i}"
+        inline: "echo \"Attempting to create tunnel 1\" && " \
+                "curl -s -X POST -d server=172.17.17.#{2*i} localhost:8080/ " \
+                " > /dev/null 2>&1 || echo \"Error..?\""
       server.vm.provision "shell",
         run: "always",
-        inline: "/vagrant/scripts/server.sh client-conf " \
-                "-r 192.168.75.100 #{i} > /vagrant/scripts/proxy#{i}.sh"
+        inline: "curl -s -X POST localhost:8080/#{i}/"
+      server.vm.provision "shell",
+        run: "always",
+        inline: "curl -s localhost:8080/#{i}/client_script/ " \
+                "> /vagrant/tmp/proxy#{i}.sh"
     end
   end
 
@@ -86,7 +106,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         ip: "10.75.#{75+i}.10"
       proxy.vm.provision "shell",
         run: "always",
-        inline: "bash /vagrant/scripts/proxy#{i}.sh"
+        inline: "bash /vagrant/tmp/proxy#{i}.sh"
     end
   end
 
