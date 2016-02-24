@@ -1,6 +1,17 @@
 #!/bin/bash
 
+is_up() {
+    [ -z "$1" ] && return 1
+    local state=$(vagrant status --machine-readable $1 | \
+                  grep "^[0-9]*,$1,state," | cut -d, -f4)
+    if [ "$state" != "running" ]; then
+        echo "VM $1 is not running."
+        return 1
+    fi
+}
+
 assert_probe() {
+    is_up $1 && is_up $3 || return
     TOTAL=$(($TOTAL+1))
     local msg="$2\t\t$1\t\t$3\t\t"
     local curl_opts="-s -m 2"
@@ -41,8 +52,14 @@ test_selfprobe() {
     echo -e $HEADER
     assert_probe server 127.0.0.1 server
     assert_probe server 192.168.75.100 server
+    assert_probe server 192.168.69.100 server
     assert_probe server 172.17.17.2 server
     assert_probe server 172.17.17.4 server
+    echo
+    echo "### peer ###"
+    echo -e $HEADER
+    assert_probe peer 127.0.0.1 peer
+    assert_probe peer 192.168.69.69 peer
     echo
     echo "### proxy1 ###"
     echo -e $HEADER
@@ -121,6 +138,15 @@ test_server_proxies() {
     assert_probe proxy2 192.168.75.100 server
 }
 
+test_peer_server() {
+    echo "Test that the peer can probe with the server"
+    echo "--------------------------------------------"
+    echo
+    echo -e $HEADER
+    assert_probe peer 192.168.69.100 server
+    assert_probe server 192.168.69.69 peer
+}
+
 test_server_targets() {
     echo "Test that the server can probe the targets through the proxies"
     echo "--------------------------------------------------------------"
@@ -167,6 +193,9 @@ test() {
         echo
         echo
         test_server_proxies
+        echo
+        echo
+        test_peer_server
         echo
         echo
     fi

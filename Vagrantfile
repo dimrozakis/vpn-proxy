@@ -7,6 +7,12 @@ TOPOLOGY = <<EOF
                             NETWORK TOPOLOGY
                             ================
 
+              ------                                  ------
+             |      | 192.168.69.1     192.168.69.69 |      |
+             | HOST |________________________________| PEER |
+             |      |               |                |      |
+              ------                |                 ------
+                                    |
                              192.168.69.100
                                 --------
    vpn-proxy-tun1: 172.17.17.2 |        | vpn-proxy-tun2: 172.17.17.4
@@ -51,6 +57,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # Use ubuntu for all vm's. This would also work with debian/jessie64.
   config.vm.box = "ubuntu/trusty64"
+
+  # Create a `peer` vm, connected to the server using a host only network.
+  config.vm.define "peer", autostart: false do |peer|
+    peer.vm.hostname = "peer"
+    peer.vm.network "private_network", ip: "192.168.69.69"
+  end
 
   # Create a `server` vm, connected to 2 proxies.
   config.vm.define "server", primary: true do |server|
@@ -124,7 +136,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Create two more `target` vm's, each connected to its corresponding `proxy`
   # vm.
   (1..2).each do |i|
-    config.vm.define "target#{2+i}" do |target|
+    config.vm.define "target#{2+i}", autostart: false do |target|
       target.vm.hostname = "target#{2+i}"
       target.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{2+i}",
