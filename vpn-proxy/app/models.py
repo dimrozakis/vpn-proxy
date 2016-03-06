@@ -205,15 +205,15 @@ class Ports(models.Model):
 				job = modes[key]
 				# mangle incoming packets based on local port
 				# mangle table is traversed before nat in every chain
-				run(['iptables', '-t', 'mangle', job, 'PREROUTING', '--dport', str(new_record['loc_port']), '-j', 'MARK',
-				     '--set-mark', str(new_record['tunnel_id'])])
+				run(['sudo', 'iptables', '-t', 'mangle', job, 'PREROUTING', '--dport', str(new_record['loc_port']),
+				     '-j', 'MARK', '--set-mark', str(new_record['tunnel_id'])])
 				# DNAT incoming packets in order to force forwarding --> private host (IP, PORT)
-				run(['iptables', '-t', 'nat', job, 'PREROUTING', '--dport', str(new_record['loc_port']), '-j', 'DNAT',
-				     '--to', str(new_record['dst_pair'])])
+				run(['sudo', 'iptables', '-t', 'nat', job, 'PREROUTING', '--dport', str(new_record['loc_port']),
+				     '-j', 'DNAT', '--to', str(new_record['dst_pair'])])
 				# MASQUERADE packets routed via the virtual interface
-				run(['iptables', '-t', 'nat', job, 'POSTROUTING', '-o', str(new_record['tunnel_name']), '-j', 'MASQUERADE'])
+				run(['sudo', 'iptables', '-t', 'nat', job, 'POSTROUTING', '-o', str(new_record['tunnel_name']), '-j', 'MASQUERADE'])
 				# point marked packets to the corresponding routing table as created during `OPENVPN start`
-				run(['ip', 'rule', str(key), 'fwmark', str(new_record['tunnel_id']), 'table', str(new_record['r_table'])])
+				run(['sudo', 'ip', 'rule', str(key), 'fwmark', str(new_record['tunnel_id']), 'table', str(new_record['r_table'])])
 
 	def save(self, *args, **kwargs):
 		"""Insert forwarding rules as soon as entry is saved"""
