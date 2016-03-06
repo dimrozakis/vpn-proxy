@@ -59,7 +59,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "ubuntu/trusty64"
 
   # Create a `peer` vm, connected to the server using a host only network.
-  config.vm.define "peer", autostart: false do |peer|
+  config.vm.define "peer" do |peer|  # , autostart: false do |peer|
     peer.vm.hostname = "peer"
     peer.vm.network "private_network", ip: "192.168.69.69"
   end
@@ -79,9 +79,13 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       inline: "pip install -U django netaddr ipython"
     server.vm.provision "shell",
       run: "always",
+      inline: "echo '1' > /proc/sys/net/ipv4/ip_forward"
+    server.vm.provision "shell",
+      run: "always",
       inline: "cd /vagrant/vpn-proxy/ && " \
+              "./manage.py makemigrations && " \
               "./manage.py migrate && " \
-              "nohup ./manage.py runserver 0.0.0.0:8080 " \
+              "nohup ./manage.py runserver 192.168.69.100:8080 " \
               "> /var/log/django.log 2>&1 </dev/null & sleep 5"
     server.vm.provision "shell",
       run: "always",
@@ -90,14 +94,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     (1..2).each do |i|
       server.vm.provision "shell",
         inline: "echo \"Attempting to create tunnel 1\" && " \
-                "curl -s -X POST -d server=172.17.17.#{2*i} localhost:8080/ " \
+                "curl -s -X POST -d server=172.17.17.#{2*i} 192.168.69.100:8080/ " \
                 " > /dev/null 2>&1 || echo \"Error..?\""
       server.vm.provision "shell",
         run: "always",
-        inline: "curl -s -X POST localhost:8080/#{i}/"
+        inline: "curl -s -X POST 192.168.69.100:8080/#{i}/"
       server.vm.provision "shell",
         run: "always",
-        inline: "curl -s localhost:8080/#{i}/client_script/ " \
+        inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
   end
