@@ -45,7 +45,6 @@ def script(request, tunel_id):
 def connection(request, peer, target, port, tunel_id):
 	_port = int(port) + 5000 + int(tunel_id)
 	entry = {}
-	# entry['src_addr'] = IPAddress(peer)
 	entry['dst_addr'] = IPAddress(target)
 	entry['dst_port'] = int(port)
 	entry['tunel_id'] = tunel_id

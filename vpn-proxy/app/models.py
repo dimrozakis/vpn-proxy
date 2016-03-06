@@ -47,6 +47,13 @@ def check_server_ip(addr):
 		                      "range [2,254].")
 
 
+def check_destination_ip(addr):
+	"""Verify that remote IP belongs to a private host"""
+	addr = netaddr.IPAddress(addr)
+	if addr.version != 4 or not addr.is_private():
+		raise ValidationError("Only private IPv4 networks are supported.")
+
+
 def pick_port(_port):
 	"""Find next available port based on Ports. This function is used directly by views.py"""
 	print('Checking port availability.')
@@ -151,8 +158,7 @@ class Tunnel(models.Model):
 
 
 class Ports(models.Model):
-	# src_addr = models.GenericIPAddressField(protocol='IPv4')
-	dst_addr = models.GenericIPAddressField(protocol='IPv4')
+	dst_addr = models.GenericIPAddressField(protocol='IPv4', validators=[check_destination_ip])
 	dst_port = models.IntegerField()
 	tunel_id = models.IntegerField()
 	loc_port = models.IntegerField(unique=True)
@@ -172,8 +178,7 @@ class Ports(models.Model):
 	def to_dict(self):
 		return {
 			'id': self.id,
-			# 'src_addr': self.src_addr,
-		    'dst_addr': self.dst_addr,
+			'dst_addr': self.dst_addr,
 			'dst_port': self.dst_port,
 			'tunnel_name': self.tunnel,
 			'loc_port': self.loc_port
