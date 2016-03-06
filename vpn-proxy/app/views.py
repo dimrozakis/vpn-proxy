@@ -42,7 +42,7 @@ def script(request, tunel_id):
 
 
 @require_http_methods(['GET'])
-def connection(request, peer, target, port, tunel_id):
+def connection(request, target, port, tunel_id):
 	_port = int(port) + 5000 + int(tunel_id)
 	entry = {}
 	entry['dst_addr'] = IPAddress(target)

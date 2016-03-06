@@ -172,6 +172,14 @@ class Ports(models.Model):
 	def port(self):
 		return self.loc_port
 
+	@property
+	def rtable(self):
+		return 'rt_%s' % self.tunnel
+
+	@property
+	def destination(self):
+		return '%s:%s' % (self.dst_addr, self.dst_port)
+
 	def __str__(self):
 		return 'Local port %s via %s -> %s:%s' % (self.port, self.tunnel, self.dst_addr, self.dst_port)
 
@@ -180,8 +188,10 @@ class Ports(models.Model):
 			'id': self.id,
 			'dst_addr': self.dst_addr,
 			'dst_port': self.dst_port,
+			'dst_pair': self.destination,
 			'tunnel_name': self.tunnel,
-			'loc_port': self.loc_port
+			'loc_port': self.loc_port,
+			'r_table': self.rtable
 		}
 
 	def forward(self, mode, **new_record):
@@ -193,16 +203,17 @@ class Ports(models.Model):
 			if key == mode:
 				job = modes[key]
 				mark = self.tunel_id
-				# DNAT incoming packets to the specified local port --> private host (IP, PORT)
+				# mangle incoming packets based on local port
+				# mangle table is traversed before nat in every chain
+				run(['iptables', '-t', 'mangle', job, 'PREROUTING', '--dport', str(new_record['loc_port']), '-j', 'MARK',
+				     '--set-mark', str(mark)])
+				# DNAT incoming packets in order to force forwarding --> private host (IP, PORT)
 				run(['iptables', '-t', 'nat', job, 'PREROUTING', '--dport', str(new_record['loc_port']), '-j', 'DNAT',
-				     '--to', str(new_record['dst_addr'] + ':' + str(new_record['dst_port']))])
+				     '--to', str(new_record['dst_pair'])])
 				# MASQUERADE packets routed via the virtual interface
 				run(['iptables', '-t', 'nat', job, 'POSTROUTING', '-o', str(new_record['tunnel_name']), '-j', 'MASQUERADE'])
-				# mangle incoming packets
-				run(['iptables', '-t', 'mangle', job, 'INPUT', '--dport', str(new_record['loc_port']), '-j', 'MARK',
-				     '--set-mark', str(mark)])
 				# point marked packets to the corresponding routing table as created during `OPENVPN start`
-				run(['iprule', str(key), 'fwmark', str(mark), 'table', str(mark)])
+				run(['ip', 'rule', str(key), 'fwmark', str(mark), 'table', str(new_record['r_table'])])
 
 	def save(self, *args, **kwargs):
 		"""Insert forwarding rules as soon as entry is saved"""
