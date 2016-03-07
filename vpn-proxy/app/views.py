@@ -1,4 +1,4 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpRequest
 from django.http import JsonResponse as _JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
@@ -51,8 +51,9 @@ def connection(request, target, port, tunel_id):
 	entry['tunel_id'] = tunel_id
 	entry['loc_port'] = pick_port(_port)
 	try:
-		old_entry = Ports.objects.get(src_addr=entry['src_addr'], dst_addr=entry['dst_addr'], dst_port=entry['dst_port'],
-		                              tunel_id=entry['tunel_id'])
+		# look up db for existing entry in order to avoid duplicates
+		old_entry = Ports.objects.get(src_addr=str(entry['src_addr']), dst_addr=str(entry['dst_addr']),
+		                              dst_port=entry['dst_port'], tunel_id=entry['tunel_id'])
 		return HttpResponse(old_entry.port)
 	except Ports.DoesNotExist:
 		assoc = Ports(**entry)
