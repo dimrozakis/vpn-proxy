@@ -8,7 +8,7 @@ urlpatterns = [
     url(r'(?P<tunel_id>[0-9]+)/$', views.tunnel, name='tunnel'),
     url(r'(?P<tunel_id>[0-9]+)/client_script/$', views.script, name='script'),
     # /target_IP/target_port/interface_id/
-    url(r'(?P<target>((2[0-5]|1[0-9]|[0-9])?[0-9]\.){3}((2[0-5]|1[0-9]|[0-9])?[0-9]))/'
+    url(r'(?P<target>([0-9]{1,3}.){3}[0-9]{1,3})/'
         r'(?P<port>[0-9]+)/'
         r'(?P<tunel_id>[0-9]+)/$', views.connection, name='connection'),
 ]

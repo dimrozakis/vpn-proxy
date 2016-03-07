@@ -56,13 +56,11 @@ def check_destination_ip(addr):
 
 def pick_port(_port):
 	"""Find next available port based on Ports. This function is used directly by views.py"""
-	print('Checking port availability.')
 	for _ in range(100):
 		try:
 			Ports.objects.get(loc_port=_port)
 			_port += 1
 		except Ports.DoesNotExist:
-			print('Available port: ' + str(_port))
 			return _port
 
 
@@ -158,6 +156,7 @@ class Tunnel(models.Model):
 
 
 class Ports(models.Model):
+	src_addr = models.GenericIPAddressField(protocol='IPv4')
 	dst_addr = models.GenericIPAddressField(protocol='IPv4', validators=[check_destination_ip])
 	dst_port = models.IntegerField()
 	tunel_id = models.IntegerField()
@@ -181,11 +180,12 @@ class Ports(models.Model):
 		return '%s:%s' % (self.dst_addr, self.dst_port)
 
 	def __str__(self):
-		return 'Local port %s via %s -> %s:%s' % (self.port, self.tunnel, self.dst_addr, self.dst_port)
+		return '%s at local port %s via %s -> %s:%s' % (self.src_addr, self.port, self.tunnel, self.dst_addr, self.dst_port)
 
 	def to_dict(self):
 		return {
 			'id': self.id,
+			'src_addr': self.src_addr,
 			'dst_addr': self.dst_addr,
 			'dst_port': self.dst_port,
 			'dst_pair': self.destination,
@@ -205,14 +205,18 @@ class Ports(models.Model):
 				job = modes[key]
 				# mangle incoming packets based on local port
 				# mangle table is traversed before nat in every chain
-				run(['sudo', 'iptables', '-t', 'mangle', job, 'PREROUTING', '--dport', str(new_record['loc_port']),
+				run(['sudo', 'iptables', '-t', 'mangle', job, 'PREROUTING', '-p', 'tcp',
+				     '--destination-port', str(new_record['loc_port']),
 				     '-j', 'MARK', '--set-mark', str(new_record['tunnel_id'])])
 				# DNAT incoming packets in order to force forwarding --> private host (IP, PORT)
-				run(['sudo', 'iptables', '-t', 'nat', job, 'PREROUTING', '--dport', str(new_record['loc_port']),
-				     '-j', 'DNAT', '--to', str(new_record['dst_pair'])])
+				run(['sudo', 'iptables', '-t', 'nat', job, 'PREROUTING', '-p', 'tcp',
+				     '--destination-port', str(new_record['loc_port']),
+				     '-j', 'DNAT', '--to-destination', str(new_record['dst_pair'])])
 				# MASQUERADE packets routed via the virtual interface
-				run(['sudo', 'iptables', '-t', 'nat', job, 'POSTROUTING', '-o', str(new_record['tunnel_name']), '-j', 'MASQUERADE'])
-				# point marked packets to the corresponding routing table as created during `OPENVPN start`
+				run(['sudo', 'iptables', '-t', 'nat', job, 'POSTROUTING', '-p', 'tcp', '-o', str(new_record['tunnel_name']),
+				     '-d', str(new_record['dst_addr']), '--destination-port', str(new_record['dst_port']),
+				     '-j', 'MASQUERADE'])
+				# point marked packets to the corresponding routing table as created during `openvpn start`
 				run(['sudo', 'ip', 'rule', str(key), 'fwmark', str(new_record['tunnel_id']), 'table', str(new_record['r_table'])])
 
 	def save(self, *args, **kwargs):

@@ -104,6 +104,13 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
+    # change reverse path filtering to loose mode in order to
+    # allow incoming NATed traffic from the private networks
+    (1..2).each do |i|
+      server.vm.provision "shell",
+        run: "always",
+        inline: "echo '2' > /proc/sys/net/ipv4/conf/vpn-proxy-tun#{i}/rp_filter"
+    end
   end
 
   # Create two `proxy` vm's connected to `server` with each proxy also
