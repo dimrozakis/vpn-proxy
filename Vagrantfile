@@ -83,7 +83,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     server.vm.provision "shell",
       run: "always",
       inline: "cd /vagrant/vpn-proxy/ && " \
-              "./manage.py makemigrations && " \
               "./manage.py migrate && " \
               "nohup ./manage.py runserver 192.168.69.100:8080 " \
               "> /var/log/django.log 2>&1 </dev/null & sleep 5"
@@ -104,14 +103,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
-    # change reverse path filtering to loose mode in order to
-    # allow incoming NATed traffic from the private networks
-    (1..2).each do |i|
-      server.vm.provision "shell",
-        run: "always",
-        inline: "echo '2' > /proc/sys/net/ipv4/conf/vpn-proxy-tun#{i}/rp_filter"
-    end
-  end
 
   # Create two `proxy` vm's connected to `server` with each proxy also
   # connected via a private network (same address space) to a `target` server.

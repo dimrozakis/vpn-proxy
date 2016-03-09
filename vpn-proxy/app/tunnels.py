@@ -228,6 +228,17 @@ def del_ip_route(iface, rtable):
     return True
 
 
+def check_rp_filter(path, iface):
+    """Set loose reverse path filter in order to allow
+    incoming NATed packets on vpn-proxy tuns"""
+    if '2' not in run(['cat', str(path)]):
+        run(['echo', '2', '>', str(path)])
+        log.info("Enabling loose reverse path filtering for %s.", iface)
+        return True
+    log.debug("Loose reverse path filter already enabled for %s.", iface)
+    return False
+
+
 def get_conf(tunnel):
     return '\n'.join(['dev %s' % tunnel.name,
                       'dev-type tun',
@@ -277,6 +288,113 @@ done
        'key': tunnel.key, 'conf': get_client_conf(tunnel), 'name': tunnel.name}
 
 
+def forwarding_summary(ports):
+    return {
+        'id': ports.id,
+        'src_addr': ports.src_addr,
+        'dst_addr': ports.dst_addr,
+        'dst_port': ports.dst_port,
+        'dst_pair': ports.destination,
+        'loc_port': ports.loc_port,
+        'tunnel_id': ports.tunnel_id,
+        'tunnel_name': ports.tunnel,
+        'r_table': ports.rtable
+    }
+
+
+def check_iptables(ports, job='-C', rule=''):
+    # mangle incoming packets based on local port
+    # mangle table is traversed before nat in every chain
+    mangle_rule = ['iptables', '-t', 'mangle', job, 'PREROUTING',
+                   '-p', 'tcp', '-s', str(ports.src_addr),
+                   '--destination-port', str(ports.loc_port),
+                   '-j', 'MARK', '--set-mark', str(ports.tunnel_id)]
+    # DNAT incoming packets in order to force forwarding
+    # --> private host (IP, PORT)
+    nat_rule = ['iptables', '-t', 'nat', job, 'PREROUTING',
+                '-p', 'tcp', '-s', str(ports.src_addr),
+                '--destination-port', str(ports.loc_port),
+                '-j', 'DNAT', '--to-destination', str(ports.destination)]
+    # MASQUERADE packets routed via the virtual interface
+    mask_rule = ['iptables', '-t', 'nat', job, 'POSTROUTING',
+                 '-p', 'tcp', '-o', str(ports.tunnel),
+                 '-s', str(ports.src_addr), '-d', str(ports.dst_addr),
+                 '--destination-port', str(ports.dst_port),
+                 '-j', 'MASQUERADE']
+    rules = {'mangle': mangle_rule, 'nat': nat_rule, 'mask': mask_rule}
+    if job == '-C' and rule == '':
+        exitcodes = {}
+        for name, cmd in rules.iteritems():
+            try:
+                run(cmd)
+                exitcodes[name] = 0
+            except subprocess.CalledProcessError as err:
+                exitcodes[name] = err.returncode
+        return exitcodes
+    else:
+        if rule == 'mangle':
+            run(mangle_rule)
+        elif rule == 'nat':
+            run(nat_rule)
+        elif rule == 'mask':
+            run(mask_rule)
+
+
+def add_iptables(ports):
+    exitcodes = check_iptables(ports)
+    for rule, exitcode in exitcodes.iteritems():
+        if exitcode == 0:
+            log.debug('IPtables %s rule already in place for local port '
+                      '%s.' % (rule, ports.loc_port))
+        else:
+            check_iptables(ports, '-A', rule)
+            log.info('Appending %s rule for local port %s' %
+                     (rule, ports.loc_port))
+
+
+def del_iptables(ports):
+    exitcodes = check_iptables(ports)
+    for rule, exitcode in exitcodes.iteritems():
+        if exitcode == 0:
+            check_iptables(ports, '-D', rule)
+            log.info('Removing IPtables %s rule for local port %s' %
+                     (rule, ports.loc_port))
+        else:
+            log.debug('IPtables %s for local port %s already deleted.' %
+                      (rule, ports.loc_port))
+
+
+def check_fwmark(mark, table):
+    line = 'from all fwmark %s lookup %s' % (mark, table)
+    if line in run(['ip', 'rule', 'show'], verbosity=0):
+        return True
+    return False
+
+
+def add_fwmark(ports):
+    # point marked packets to the corresponding routing table
+    # as created during `openvpn start`
+    ip_rule = ['ip', 'rule', 'add', 'fwmark', str(ports.tunnel_id),
+               'table', str(ports.rtable)]
+    if check_fwmark(ports.tunnel_id, ports.rtable):
+        log.debug('IP rule for mark %s already exists.', ports.tunnel_id)
+    else:
+        run(ip_rule)
+        log.info('Inserting IP rule for fwmark %s pointing to routing table'
+                 ' %s' % (ports.tunnel_id, ports.rtable))
+
+
+def del_fwmark(ports):
+    ip_rule = ['ip', 'rule', 'delete', 'fwmark', str(ports.tunnel_id),
+               'table', str(ports.rtable)]
+    if check_fwmark(ports.tunnel_id, ports.rtable):
+        run(ip_rule)
+        log.info('Removing IP rule for fwmark %s pointing to routing table'
+                 ' %s' % (ports.tunnel_id, ports.rtable))
+    else:
+        log.debug('IP rule for mark % already removed.', ports.tunnel_id)
+
+
 def start_tunnel(tunnel):
     write_file(tunnel.key_path, tunnel.key, 'key file')
     write_file(tunnel.conf_path, get_conf(tunnel), 'conf file')
@@ -284,6 +402,7 @@ def start_tunnel(tunnel):
     add_rtable(tunnel.id, tunnel.rtable)
     add_ip_rule(tunnel.server, tunnel.rtable)
     add_ip_route(tunnel.name, tunnel.rtable)
+    check_rp_filter(tunnel.rp_filter, tunnel.name)
 
 
 def stop_tunnel(tunnel):
