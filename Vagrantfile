@@ -103,6 +103,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
+  end
 
   # Create two `proxy` vm's connected to `server` with each proxy also
   # connected via a private network (same address space) to a `target` server.
