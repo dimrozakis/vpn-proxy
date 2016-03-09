@@ -10,8 +10,8 @@ from django.core.exceptions import ValidationError
 
 from .tunnels import start_tunnel, stop_tunnel, gen_key
 from .tunnels import get_conf, get_client_conf, get_client_script
-from .tunnels import forwarding_summary, add_iptables, del_iptables, \
-                                         add_fwmark, del_fwmark
+from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
+from .tunnels import forwarding_summary
 
 
 IFACE_PREFIX = 'vpn-proxy-tun'
@@ -167,12 +167,12 @@ class PortForwarding(models.Model):
                                             validators=[check_destination_ip])
     dst_port = models.IntegerField()
     loc_port = models.IntegerField(unique=True)
-    tunnel = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
+    tunnels = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
     def tunnel(self):
-        return '%s%s' % (IFACE_PREFIX, self.tunnel_id)
+        return '%s%s' % (IFACE_PREFIX, self.tunnels_id)
 
     @property
     def port(self):
