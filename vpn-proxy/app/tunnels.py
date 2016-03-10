@@ -231,12 +231,16 @@ def del_ip_route(iface, rtable):
 def check_rp_filter(path, iface):
     """Set loose reverse path filter in order to allow
     incoming NATed packets on vpn-proxy tuns"""
-    if '2' not in run(['cat', str(path)]):
-        run(['echo', '2', '>', str(path)])
-        log.info("Enabling loose reverse path filtering for %s.", iface)
-        return True
-    log.debug("Loose reverse path filter already enabled for %s.", iface)
-    return False
+    with open(path, 'r') as rp:
+        if '2' not in rp.read():
+            with open(path, 'wb') as rp:
+                rp.write('2')
+                log.info("Enabling loose reverse path filtering for %s.", iface)
+                return True
+        else:
+            log.debug("Loose reverse path filter already "
+                      "enabled for %s.", iface)
+            return False
 
 
 def get_conf(tunnel):
