@@ -56,6 +56,7 @@ def connection(request, tunnel_id, target, port):
                                                dst_addr=str(entry['dst_addr']),
                                                dst_port=entry['dst_port'],
                                                tunnels=tunnel_entry)
+        old_entry.enable()
         return HttpResponse(old_entry.port)
     except PortForwarding.DoesNotExist:
         assoc = PortForwarding(src_addr=str(entry['src_addr']),
