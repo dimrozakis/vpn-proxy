@@ -108,6 +108,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         run: "always",
         inline: "curl -s 192.168.69.100:8080/#{i}/forwardings/10.75.75.75/80/" \
                 " > /vagrant/tmp/target#{i}_port.txt"
+    end
   end
 
   # Create two `proxy` vm's connected to `server` with each proxy also
