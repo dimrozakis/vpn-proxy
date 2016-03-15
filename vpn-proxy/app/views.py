@@ -3,9 +3,7 @@ from django.http import JsonResponse as _JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 
-from .models import Tunnel, PortForwarding, pick_port
-
-from netaddr import IPAddress
+from .models import Tunnel, Forwarding, pick_port
 
 
 class JsonResponse(_JsonResponse):
@@ -43,28 +41,20 @@ def script(request, tunel_id):
 
 @require_http_methods(['GET'])
 def connection(request, tunnel_id, target, port):
-    _port = int(port) + 5000 + int(tunnel_id)
-    entry = {}
-    entry['src_addr'] = IPAddress(request.META['REMOTE_ADDR'])
-    entry['dst_addr'] = IPAddress(target)
-    entry['dst_port'] = int(port)
-    entry['loc_port'] = pick_port(_port)
-    tunnel_entry = get_object_or_404(Tunnel, pk=tunnel_id)
+    entry = {
+        'src_addr': request.META['REMOTE_ADDR'],
+        'dst_addr': target,
+        'dst_port': int(port),
+        'tunnel': get_object_or_404(Tunnel, pk=tunnel_id),
+    }
     try:
         # look up db for existing entry in order to avoid duplicates
-        old_entry = PortForwarding.objects.get(src_addr=str(entry['src_addr']),
-                                               dst_addr=str(entry['dst_addr']),
-                                               dst_port=entry['dst_port'],
-                                               tunnels=tunnel_entry)
-        old_entry.enable()
-        return HttpResponse(old_entry.port)
-    except PortForwarding.DoesNotExist:
-        assoc = PortForwarding(src_addr=str(entry['src_addr']),
-                               dst_addr=str(entry['dst_addr']),
-                               dst_port=entry['dst_port'],
-                               loc_port=entry['loc_port'],
-                               tunnels=tunnel_entry)
-        _id = assoc.save()
-        new_entry = get_object_or_404(PortForwarding, pk=_id)
-        assoc.enable()
-        return HttpResponse(new_entry.port)
+        forwarding = Forwarding.objects.get(**entry)
+        forwarding.enable()
+        return HttpResponse(forwarding.port)
+    except Forwarding.DoesNotExist:
+        loc_port = pick_port(int(port) + 5000 + int(tunnel_id))
+        forwarding = Forwarding(loc_port=loc_port, **entry)
+        forwarding.enable()
+        forwarding.save()
+    return HttpResponse(forwarding.port)

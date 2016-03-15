@@ -11,7 +11,6 @@ from django.core.exceptions import ValidationError
 from .tunnels import start_tunnel, stop_tunnel, gen_key
 from .tunnels import get_conf, get_client_conf, get_client_script
 from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
-from .tunnels import forwarding_summary
 
 
 IFACE_PREFIX = 'vpn-proxy-tun'
@@ -60,9 +59,9 @@ def pick_port(_port):
     This function is used directly by views.py"""
     for _ in range(100):
         try:
-            PortForwarding.objects.get(loc_port=_port)
+            Forwarding.objects.get(loc_port=_port)
             _port += 1
-        except PortForwarding.DoesNotExist:
+        except Forwarding.DoesNotExist:
             return _port
 
 
@@ -161,26 +160,18 @@ class Tunnel(models.Model):
         super(Tunnel, self).delete(*args, **kwargs)
 
 
-class PortForwarding(models.Model):
+class Forwarding(models.Model):
     src_addr = models.GenericIPAddressField(protocol='IPv4')
     dst_addr = models.GenericIPAddressField(protocol='IPv4',
                                             validators=[check_destination_ip])
     dst_port = models.IntegerField()
     loc_port = models.IntegerField(unique=True)
-    tunnels = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
+    tunnel = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    @property
-    def tunnel(self):
-        return '%s%s' % (IFACE_PREFIX, self.tunnels_id)
 
     @property
     def port(self):
         return self.loc_port
-
-    @property
-    def rtable(self):
-        return 'rt_%s' % self.tunnel
 
     @property
     def destination(self):
@@ -197,18 +188,28 @@ class PortForwarding(models.Model):
     def __str__(self):
         return '%s at local port %s via %s -> %s:%s' % (self.src_addr,
                                                         self.port,
-                                                        self.tunnel,
+                                                        self.tunnel.name,
                                                         self.dst_addr,
                                                         self.dst_port)
 
     def to_dict(self):
-        return forwarding_summary(self)
+        return {
+            'id': self.id,
+            'src_addr': self.src_addr,
+            'dst_addr': self.dst_addr,
+            'dst_port': self.dst_port,
+            'dst_pair': self.destination,
+            'loc_port': self.loc_port,
+            'tunnel_id': self.tunnel.id,
+            'tunnel_name': self.tunnel.name,
+            'r_table': self.tunnel.rtable
+        }
 
     def save(self, *args, **kwargs):
         self.full_clean()
-        super(PortForwarding, self).save(*args, **kwargs)
+        super(Forwarding, self).save(*args, **kwargs)
         return self.id
 
     def delete(self, *args, **kwargs):
         self.disable()
-        super(PortForwarding, self).delete(*args, **kwargs)
+        super(Forwarding, self).delete(*args, **kwargs)
