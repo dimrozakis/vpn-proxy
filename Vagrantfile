@@ -58,12 +58,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Use ubuntu for all vm's. This would also work with debian/jessie64.
   config.vm.box = "ubuntu/trusty64"
 
-  # Create a `peer` vm, connected to the server using a host only network.
-  config.vm.define "peer" do |peer|  # , autostart: false do |peer|
-    peer.vm.hostname = "peer"
-    peer.vm.network "private_network", ip: "192.168.69.69"
-  end
-
   # Create a `server` vm, connected to 2 proxies.
   config.vm.define "server", primary: true do |server|
     server.vm.hostname = "server"
@@ -103,6 +97,17 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
+  end
+
+  # Create a `peer` vm, connected to the server using a host only network.
+  config.vm.define "peer" do |peer|
+    peer.vm.hostname = "peer"
+    peer.vm.network "private_network", ip: "192.168.69.69"
+    (1..2).each do |i|
+      peer.vm.provision "shell",
+        run: "always",
+        inline: "curl -s 192.168.69.100:8080/#{i}/forwardings/10.75.75.75/80/" \
+                " > /vagrant/tmp/target#{i}_port.txt"
   end
 
   # Create two `proxy` vm's connected to `server` with each proxy also

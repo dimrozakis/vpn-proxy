@@ -147,6 +147,20 @@ test_peer_server() {
     assert_probe server 192.168.69.69 peer
 }
 
+test_peer_targets() {
+    echo "Test that the peer can probe the targets through the vpn-proxy"
+    echo "--------------------------------------------------------------"
+    echo
+    filename1="../tmp/target1_port.txt"
+    filename2="../tmp/target2_port.txt"
+    port1=$(cat "$filename1")
+    port2=$(cat "$filename2")
+    echo
+    echo -e $HEADER
+    assert_probe peer 192.168.69.100:$port1 target1
+    assert_probe peer 192.168.69.100:$port2 target2
+}
+
 test_server_targets() {
     echo "Test that the server can probe the targets through the proxies"
     echo "--------------------------------------------------------------"
@@ -199,6 +213,9 @@ test() {
         echo
         echo
     fi
+    test_peer_targets
+    echo
+    echo
     test_server_targets
     echo
     echo
