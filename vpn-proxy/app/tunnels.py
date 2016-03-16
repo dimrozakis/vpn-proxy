@@ -269,7 +269,9 @@ if ! which openvpn > /dev/null; then
         echo "Couldn't find apt-get to install OpenVPN."
         exit 1
     fi
-    apt-get update && apt-get install -y openvpn
+    if ! apt-get install -y openvpn; then
+        apt-get update && apt-get install -y openvpn
+    fi
 fi
 
 cat > %(key_path)s << EOF
