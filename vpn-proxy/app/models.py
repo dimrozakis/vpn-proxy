@@ -65,15 +65,61 @@ def pick_port(_port):
             return _port
 
 
-class Tunnel(models.Model):
+class BaseModel(models.Model):
+    """Abstract base model to be used by Tunnel and Forwarding"""
+
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+    def enable(self, save=True):
+        """Apply server configuration"""
+        if not self.active:
+            self.active = True
+            if save:
+                self.save()
+        self._enable()
+
+    def disable(self, save=True):
+        """Remove server configuration"""
+        if self.active:
+            self.active = False
+            if save:
+                self.save()
+        self._disable()
+
+    def reset(self, save=True):
+        """Reapply server configuration based on state"""
+        if self.active:
+            self.enable(save=save)
+        else:
+            self.disable(save=save)
+
+    def save(self, *args, **kwargs):
+        """Force model validation and reset server configuration"""
+        self.full_clean()
+        if self.id:
+            self.reset(save=False)
+            super(BaseModel, self).save(*args, **kwargs)
+        else:
+            super(BaseModel, self).save(*args, **kwargs)
+            self.reset(save=False)
+
+    def delete(self, *args, **kwargs):
+        """Remove server configuration before deleting"""
+        self.disable(save=False)
+        super(BaseModel, self).delete(*args, **kwargs)
+
+
+class Tunnel(BaseModel):
     server = models.GenericIPAddressField(protocol='IPv4',
                                           default=chose_server_ip,
                                           validators=[check_server_ip],
                                           unique=True)
     key = models.TextField(default=gen_key, blank=False, unique=True)
-    active = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     @property
     def name(self):
@@ -118,23 +164,11 @@ class Tunnel(models.Model):
     def client_script(self):
         return get_client_script(self)
 
-    def start(self):
-        if not self.active:
-            self.active = True
-            self.save()
+    def _enable(self):
         start_tunnel(self)
 
-    def stop(self):
-        if self.active:
-            self.active = False
-            self.save()
+    def _disable(self):
         stop_tunnel(self)
-
-    def reset(self):
-        if self.active:
-            self.start()
-        else:
-            self.stop()
 
     def __str__(self):
         return '%s %s -> %s (port %s)' % (self.name, self.server,
@@ -151,23 +185,20 @@ class Tunnel(models.Model):
             'active': self.active,
         }
 
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super(Tunnel, self).save(*args, **kwargs)
-
     def delete(self, *args, **kwargs):
-        self.stop()
+        """Disable and delete all forwardings before deleting tunnel"""
+        for forwarding in self.forwarding_set:
+            forwarding.delete()
         super(Tunnel, self).delete(*args, **kwargs)
 
 
-class Forwarding(models.Model):
-    src_addr = models.GenericIPAddressField(protocol='IPv4')
+class Forwarding(BaseModel):
+    tunnel = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
     dst_addr = models.GenericIPAddressField(protocol='IPv4',
                                             validators=[check_destination_ip])
     dst_port = models.IntegerField()
     loc_port = models.IntegerField(unique=True)
-    tunnel = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    src_addr = models.GenericIPAddressField(protocol='IPv4')
 
     @property
     def port(self):
@@ -177,11 +208,11 @@ class Forwarding(models.Model):
     def destination(self):
         return '%s:%s' % (self.dst_addr, self.dst_port)
 
-    def enable(self):
+    def _enable(self):
         add_iptables(self)
         add_fwmark(self)
 
-    def disable(self):
+    def _disable(self):
         del_iptables(self)
         del_fwmark(self)
 
@@ -204,12 +235,3 @@ class Forwarding(models.Model):
             'tunnel_name': self.tunnel.name,
             'r_table': self.tunnel.rtable
         }
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super(Forwarding, self).save(*args, **kwargs)
-        return self.id
-
-    def delete(self, *args, **kwargs):
-        self.disable()
-        super(Forwarding, self).delete(*args, **kwargs)

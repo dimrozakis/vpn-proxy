@@ -29,7 +29,7 @@ def tunnels(request):
 def tunnel(request, tunel_id):
     tun = get_object_or_404(Tunnel, pk=tunel_id)
     if request.method == 'POST':
-        tun.start()
+        tun.enable()
     return JsonResponse(tun.to_dict())
 
 
