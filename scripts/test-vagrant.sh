@@ -1,181 +1,201 @@
 #!/bin/bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
+
+OK=0
+FAILED=0
+SKIPPED=0
+TOTAL=0
+
 is_up() {
     [ -z "$1" ] && return 1
     local state=$(vagrant status --machine-readable $1 | \
                   grep "^[0-9]*,$1,state," | cut -d, -f4)
     if [ "$state" != "running" ]; then
-        echo "VM $1 is not running."
         return 1
     fi
 }
 
 assert_probe() {
-    is_up $1 && is_up $3 || return
     TOTAL=$(($TOTAL+1))
-    local msg="$2\t\t$1\t\t$3\t\t"
-    local curl_opts="-s -m 2"
+    printf "%-24s| %-12s| " "$2" "$1"
     if [ "$4" ]; then
-        msg="$msg$4"
-        curl_opts="$curl_opts --interface $4"
+        printf "%-18s" "$4"
+        local curl_opts="--interface $4"
     else
-        msg="$msg-"
+        printf "%-18s" "<default>"
     fi
-    echo -ne "$msg\t\t"
+    printf "| %-12s| " "$3"
+    if ! is_up $1; then
+        echo "SKIPPED: $1 not running"
+        SKIPPED=$(($SKIPPED+1))
+        return 2
+    elif ! is_up $3; then
+        echo "SKIPPED: $3 not running"
+        SKIPPED=$(($SKIPPED+1))
+        return 2
+    fi
 
     if [ "$MODE" = "python" ]; then
-        cmd="sudo python /vagrant/scripts/bind_iface.py $2 $4"
+        local cmd="sudo python /vagrant/scripts/bind_iface.py $2 $4"
     else
-        cmd="curl $curl_opts $2"
+        local cmd="curl -s -m 2 $curl_opts $2"
     fi
     local result=`vagrant ssh $1 -c "$cmd | tr -d '\r\n'" 2> /dev/null`
     local error=$?
     if [ "$error" -gt 0 ]; then
         echo "ERROR: Return code $error, result \"$result\"."
+        FAILED=$(($FAILED+1))
         return 1
     fi
     if [ "$result" != "$3" ]; then
         echo "ERROR: \"$result\"."
+        FAILED=$(($FAILED+1))
         return 1
     fi
     OK=$(($OK+1))
     echo "OK"
 }
 
-HEADER="When we probe\t\tfrom\t\twe see\t\tvia\t\tcheck"
+columns() {
+    printf "%-24s| %-12s| %-18s| %-12s| %s\n" \
+        "When we probe" "from" "via" "we see" "check"
+    printf "%0.s-" {1..79}
+    echo
+}
+
+header() {
+    echo $1
+    if [ -z "$2" ]; then
+        char="="
+    else
+        char=$2
+    fi
+    printf "%0.s$char" `seq 1 ${#1}`
+    echo
+    echo
+}
+
+subheader() {
+    echo
+    header "$1" "-"
+}
 
 test_selfprobe() {
-    echo "Test that each server can probe itself on all interfaces"
-    echo "--------------------------------------------------------"
-    echo
-    echo "### server ###"
-    echo -e $HEADER
+    header "Test that each server can probe itself on all interfaces"
+    subheader "server"
+    columns
     assert_probe server 127.0.0.1 server
     assert_probe server 192.168.75.100 server
     assert_probe server 192.168.69.100 server
     assert_probe server 172.17.17.2 server
     assert_probe server 172.17.17.4 server
     echo
-    echo "### peer ###"
-    echo -e $HEADER
+    subheader "peer"
+    columns
     assert_probe peer 127.0.0.1 peer
     assert_probe peer 192.168.69.69 peer
     echo
-    echo "### proxy1 ###"
-    echo -e $HEADER
+    subheader "proxy1"
+    columns
     assert_probe proxy1 127.0.0.1 proxy1
     assert_probe proxy1 192.168.75.101 proxy1
     assert_probe proxy1 10.75.75.10 proxy1
     assert_probe proxy1 10.75.76.10 proxy1
     assert_probe proxy1 172.17.17.3 proxy1
     echo
-    echo "### proxy2 ###"
-    echo -e $HEADER
+    subheader "proxy2"
+    columns
     assert_probe proxy2 127.0.0.1 proxy2
     assert_probe proxy2 192.168.75.102 proxy2
     assert_probe proxy2 10.75.75.10 proxy2
     assert_probe proxy2 10.75.77.10 proxy2
     assert_probe proxy2 172.17.17.5 proxy2
     echo
-    echo "### target1 ###"
-    echo -e $HEADER
+    subheader "target1"
+    columns
     assert_probe target1 127.0.0.1 target1
     assert_probe target1 10.75.75.75 target1
     echo
-    echo "### target2 ###"
-    echo -e $HEADER
+    subheader "target2"
+    columns
     assert_probe target2 127.0.0.1 target2
     assert_probe target2 10.75.75.75 target2
     echo
-    echo "### target3 ###"
-    echo -e $HEADER
+    subheader "target3"
+    columns
     assert_probe target3 127.0.0.1 target3
     assert_probe target3 10.75.76.75 target3
     echo
-    echo "### target4 ###"
-    echo -e $HEADER
+    subheader "target4"
+    columns
     assert_probe target4 127.0.0.1 target4
     assert_probe target4 10.75.77.75 target4
 }
 
 test_proxy_targets() {
-    echo "Test that each proxy can probe with its targets"
-    echo "-----------------------------------------------"
-    echo
-    echo "### proxy1 <-> target1 ###"
-    echo -e $HEADER
+    header "Test that each proxy can probe with its targets"
+    subheader "proxy1 <-> target1"
+    columns
     assert_probe proxy1 10.75.75.75 target1
     assert_probe target1 10.75.75.10 proxy1
     echo
-    echo "### proxy1 <-> target3 ###"
-    echo -e $HEADER
+    subheader "proxy1 <-> target3"
+    columns
     assert_probe proxy1 10.75.76.75 target3
     assert_probe target3 10.75.76.10 proxy1
     echo
-    echo "### proxy2 <-> target2 ###"
-    echo -e $HEADER
+    subheader "proxy2 <-> target2"
+    columns
     assert_probe proxy2 10.75.75.75 target2
     assert_probe target2 10.75.75.10 proxy2
     echo
-    echo "### proxy2 <-> target4 ###"
-    echo -e $HEADER
+    subheader "proxy2 <-> target4"
+    columns
     assert_probe proxy2 10.75.77.75 target4
     assert_probe target4 10.75.77.10 proxy2
 }
 
 test_server_proxies() {
-    echo "Test that the server can probe with the proxies"
-    echo "-----------------------------------------------"
-    echo
-    echo "### server <-> proxy1 ###"
-    echo -e $HEADER
+    header "Test that the server can probe with the proxies"
+    subheader "server <-> proxy1"
+    columns
     assert_probe server 192.168.75.101 proxy1
     assert_probe proxy1 192.168.75.100 server
     echo
-    echo "### server <-> proxy2 ###"
-    echo -e $HEADER
+    subheader "server <-> proxy2"
+    columns
     assert_probe server 192.168.75.102 proxy2
     assert_probe proxy2 192.168.75.100 server
 }
 
 test_peer_server() {
-    echo "Test that the peer can probe with the server"
-    echo "--------------------------------------------"
-    echo
-    echo -e $HEADER
+    header "Test that the peer can probe with the server"
+    columns
     assert_probe peer 192.168.69.100 server
     assert_probe server 192.168.69.69 peer
 }
 
-test_peer_targets() {
-    echo "Test that the peer can probe the targets through the vpn-proxy"
-    echo "--------------------------------------------------------------"
-    echo
-    filename1="../tmp/target1_port.txt"
-    filename2="../tmp/target2_port.txt"
-    port1=$(cat "$filename1")
-    port2=$(cat "$filename2")
-    echo
-    echo -e $HEADER
-    assert_probe peer 192.168.69.100:$port1 target1
-    assert_probe peer 192.168.69.100:$port2 target2
-}
-
 test_server_targets() {
-    echo "Test that the server can probe the targets through the proxies"
-    echo "--------------------------------------------------------------"
-    echo
-    echo -e $HEADER
+    header "Test that the server can probe the targets through the proxies"
+    columns
     assert_probe server 10.75.75.75 target1 vpn-proxy-tun1
     assert_probe server 10.75.75.75 target2 vpn-proxy-tun2
     assert_probe server 10.75.76.75 target3 vpn-proxy-tun1
     assert_probe server 10.75.77.75 target4 vpn-proxy-tun2
 }
 
+test_peer_targets() {
+    header "Test that the peer can probe the targets through the vpn-proxy"
+    columns
+    local port1=$(cat $DIR/tmp/target1_port.txt)
+    local port2=$(cat $DIR/tmp/target2_port.txt)
+    assert_probe peer 192.168.69.100:$port1 target1
+    assert_probe peer 192.168.69.100:$port2 target2
+}
+
 test_targets_server() {
-    echo "Test that the targets can probe the server through the proxies"
-    echo "--------------------------------------------------------------"
-    echo
+    header "Test that the targets can probe the server through the proxies"
     for i in {1..2}; do
         local ip="172.17.17.$((2*$i))"
         local rule="PREROUTING -t nat -p tcp --dport 81 -j DNAT --to $ip:80"
@@ -185,7 +205,7 @@ test_targets_server() {
         vagrant ssh proxy$i -c "$cmd" 2> /dev/null
     done
     echo
-    echo -e $HEADER
+    columns
     assert_probe target1 10.75.75.10:81 server
     assert_probe target3 10.75.76.10:81 server
     assert_probe target2 10.75.75.10:81 server
@@ -193,10 +213,6 @@ test_targets_server() {
 }
 
 test() {
-    echo "Testing using $MODE"
-    echo "==================="
-    echo
-    echo
     if [ "$SELF_TEST" ]; then
         test_selfprobe
         echo
@@ -213,16 +229,21 @@ test() {
         echo
         echo
     fi
-    test_peer_targets
-    echo
-    echo
     test_server_targets
+    echo
+    echo
+    test_peer_targets
     echo
     echo
     test_targets_server
     echo
     echo
-    echo "Failed: $(($TOTAL-$OK))/$TOTAL"
+    echo "Summary"
+    echo "======="
+    echo
+    echo "OK   | FAILED | SKIPPED | TOTAL"
+    echo "------------------------------"
+    printf "%-4s | %-6s | %-7s | %s\n" $OK $FAILED $SKIPPED $TOTAL
 }
 
 MODE="curl"
