@@ -171,6 +171,7 @@ class Tunnel(BaseModel):
         stop_tunnel(self)
 
     def __str__(self):
+        return self.name
         return '%s %s -> %s (port %s)' % (self.name, self.server,
                                           self.client, self.port)
 
