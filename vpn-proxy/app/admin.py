@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Tunnel
+from .models import Tunnel, Forwarding
 
 
 class TunnelAdmin(admin.ModelAdmin):
@@ -35,4 +35,20 @@ class TunnelAdmin(admin.ModelAdmin):
     start.short_description = "Delete"
 
 
+class ForwardingAdmin(admin.ModelAdmin):
+    fields = ['src_addr', 'dst_addr', 'dst_port', 'loc_port', 'tunnel']
+    list_display = ['id', 'src_addr', 'dst_addr',
+                    'dst_port', 'loc_port', 'created_at']
+    actions = ['enable', 'disable']
+
+    def enable(self, request, queryset):
+        for forwarding in queryset:
+            forwarding.enable()
+
+    def disable(self, request, queryset):
+        for forwarding in queryset:
+            forwarding.disable()
+
+
 admin.site.register(Tunnel, TunnelAdmin)
+admin.site.register(Forwarding, ForwardingAdmin)
