@@ -87,8 +87,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     (1..2).each do |i|
       server.vm.provision "shell",
         inline: "echo \"Attempting to create tunnel 1\" && " \
-                "curl -s -X POST -d server=172.17.17.#{2*i} 192.168.69.100:8080/ " \
-                " > /dev/null 2>&1 || echo \"Error..?\""
+                "curl -s -X POST -d server=172.17.17.#{2*i} " \
+                "192.168.69.100:8080/  > /dev/null 2>&1 || echo \"Error..?\""
       server.vm.provision "shell",
         run: "always",
         inline: "curl -s -X POST 192.168.69.100:8080/#{i}/"
@@ -97,6 +97,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
+    server.vm.provision "shell",
+      run: "always",
+      inline: "echo 'from project.createsuperuser import main; main()' | " \
+              "/vagrant/vpn-proxy/manage.py shell --plain"
   end
 
   # Create a `peer` vm, connected to the server using a host only network.
