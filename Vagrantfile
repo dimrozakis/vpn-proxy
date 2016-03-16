@@ -67,22 +67,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       ip: "192.168.75.100"
     server.vm.post_up_message = TOPOLOGY
     server.vm.provision "shell",
-      inline: "apt-get update && apt-get install -y openvpn python python-pip"
+      inline: "/vagrant/scripts/install.sh"
     server.vm.provision "shell",
       run: "always",
-      inline: "pip install -U django netaddr ipython"
-    server.vm.provision "shell",
-      run: "always",
-      inline: "echo '1' > /proc/sys/net/ipv4/ip_forward"
-    server.vm.provision "shell",
-      run: "always",
-      inline: "cd /vagrant/vpn-proxy/ && " \
-              "./manage.py migrate && " \
-              "nohup ./manage.py runserver 192.168.69.100:8080 " \
+      inline: "nohup /vagrant/vpn-proxy/manage.py " \
+              "runserver 192.168.69.100:8080 " \
               "> /var/log/django.log 2>&1 </dev/null & sleep 5"
-    server.vm.provision "shell",
-      run: "always",
-      inline: "mkdir -p /vagrant/tmp"
     # Set up openvpn server
     (1..2).each do |i|
       server.vm.provision "shell",
@@ -97,10 +87,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
-    server.vm.provision "shell",
-      run: "always",
-      inline: "echo 'from project.createsuperuser import main; main()' | " \
-              "/vagrant/vpn-proxy/manage.py shell --plain"
   end
 
   # Create a `peer` vm, connected to the server using a host only network.
