@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 
 from .tunnels import start_tunnel, stop_tunnel, gen_key
 from .tunnels import get_conf, get_client_conf, get_client_script
+from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
 
 IFACE_PREFIX = 'vpn-proxy-tun'
@@ -46,6 +47,24 @@ def check_server_ip(addr):
                               "range [2,254].")
 
 
+def check_destination_ip(addr):
+    """Verify that remote IP belongs to a private host"""
+    addr = netaddr.IPAddress(addr)
+    if addr.version != 4 or not addr.is_private():
+        raise ValidationError("Only private IPv4 networks are supported.")
+
+
+def pick_port(_port):
+    """Find next available port based on Ports.
+    This function is used directly by views.py"""
+    for _ in range(100):
+        try:
+            Forwarding.objects.get(loc_port=_port)
+            _port += 1
+        except Forwarding.DoesNotExist:
+            return _port
+
+
 class Tunnel(models.Model):
     server = models.GenericIPAddressField(protocol='IPv4',
                                           default=chose_server_ip,
@@ -74,6 +93,10 @@ class Tunnel(models.Model):
     @property
     def rtable(self):
         return 'rt_%s' % self.name
+
+    @property
+    def rp_filter(self):
+        return '/proc/sys/net/ipv4/conf/%s/rp_filter' % self.name
 
     @property
     def key_path(self):
@@ -135,3 +158,58 @@ class Tunnel(models.Model):
     def delete(self, *args, **kwargs):
         self.stop()
         super(Tunnel, self).delete(*args, **kwargs)
+
+
+class Forwarding(models.Model):
+    src_addr = models.GenericIPAddressField(protocol='IPv4')
+    dst_addr = models.GenericIPAddressField(protocol='IPv4',
+                                            validators=[check_destination_ip])
+    dst_port = models.IntegerField()
+    loc_port = models.IntegerField(unique=True)
+    tunnel = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def port(self):
+        return self.loc_port
+
+    @property
+    def destination(self):
+        return '%s:%s' % (self.dst_addr, self.dst_port)
+
+    def enable(self):
+        add_iptables(self)
+        add_fwmark(self)
+
+    def disable(self):
+        del_iptables(self)
+        del_fwmark(self)
+
+    def __str__(self):
+        return '%s at local port %s via %s -> %s:%s' % (self.src_addr,
+                                                        self.port,
+                                                        self.tunnel.name,
+                                                        self.dst_addr,
+                                                        self.dst_port)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'src_addr': self.src_addr,
+            'dst_addr': self.dst_addr,
+            'dst_port': self.dst_port,
+            'dst_pair': self.destination,
+            'loc_port': self.loc_port,
+            'tunnel_id': self.tunnel.id,
+            'tunnel_name': self.tunnel.name,
+            'r_table': self.tunnel.rtable
+        }
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super(Forwarding, self).save(*args, **kwargs)
+        return self.id
+
+    def delete(self, *args, **kwargs):
+        self.disable()
+        super(Forwarding, self).delete(*args, **kwargs)
