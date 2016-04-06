@@ -5,6 +5,9 @@ from django.views.decorators.http import require_http_methods
 
 from .models import Tunnel, Forwarding, pick_port
 
+import subprocess
+import pingparser
+
 
 class JsonResponse(_JsonResponse):
     def __init__(self, data, **kwargs):
@@ -58,3 +61,17 @@ def connection(request, tunnel_id, target, port):
         forwarding.enable()
         forwarding.save()
     return HttpResponse(forwarding.port)
+
+
+@require_http_methods(['GET'])
+def ping(request, tunnel_id, target):
+    tunnel = get_object_or_404(Tunnel, pk=tunnel_id)
+    if target == '':
+        hostname = tunnel.client
+    else:
+        hostname = target
+    cmd = ['ping', '-c', '3', '-W', '1', '-q', '-I',
+           str(tunnel.name), str(hostname)]
+    ping_output = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    ping_parsed = pingparser.parse(ping_output.stdout.read())
+    return JsonResponse(ping_parsed)
