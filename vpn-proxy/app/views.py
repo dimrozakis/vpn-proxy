@@ -70,7 +70,7 @@ def ping(request, tunnel_id, target):
         hostname = tunnel.client
     else:
         hostname = target
-    cmd = ['ping', '-c', '3', '-W', '1', '-q', '-I',
+    cmd = ['ping', '-c', '10', '-i', '0.4', '-W', '1', '-q', '-I',
            str(tunnel.name), str(hostname)]
     ping_output = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     ping_parsed = pingparser.parse(ping_output.stdout.read())

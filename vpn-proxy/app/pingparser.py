@@ -49,10 +49,15 @@ def parse(ping_output):
     except:
         minping, avgping, maxping, jitter = ['NaN']*4
 
-    return {'host': host, 'sent': sent, 'received': received,
-            'packet_loss': packet_loss, 'minping': minping,
-            'avgping': avgping, 'maxping': maxping, 'jitter': jitter
-            }
+    return {
+        # 'host': host,
+        'packets_tx': sent,
+        'packets_rx': received,
+        'packets_loss': packet_loss,
+        'rtt_min': minping,
+        'rtt_avg': avgping,
+        'rtt_max': maxping
+    }
 
 
 def main(argv=sys.argv):
