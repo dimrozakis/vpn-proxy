@@ -15,43 +15,46 @@ from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
 IFACE_PREFIX = 'vpn-proxy-tun'
 SERVER_PORT_START = 1195
-VPN_ADDRESSES = '172.17.17.0/24'
+# VPN_ADDRESSES = '172.17.17.0/24'
+VPN_ADDRESSES = ['192.168.0.0/16', '172.16.0.0/12', '10.0.0.0/8']
 
 log = logging.getLogger(__name__)
 
 
-def chose_server_ip(network=VPN_ADDRESSES):
+def choose_server_ip(addr):
     """Find an available server IP in the given network (CIDR notation)"""
-    network = netaddr.IPNetwork(network)
-    if network.version != 4 or not network.is_private():
+    address = netaddr.IPAddress(addr)
+    if address.version != 4 or not address.is_private():
         raise Exception("Only private IPv4 networks are supported.")
-    first, last = network.first, network.last
-    if first % 2:
-        first += 1
-    for i in range(20):
-        addr = str(netaddr.IPAddress(random.randrange(first, last, 2)))
-        print addr
+    for network in VPN_ADDRESSES:
+        if address in netaddr.IPNetwork(network):
+            cidr = netaddr.IPNetwork(network)
+            break
+    while True:
+        address += 1
+        if address not in cidr:
+            address = cidr.ip + 1
         try:
-            Tunnel.objects.get(server=addr)
+            Tunnel.objects.get(server=str(address))
         except Tunnel.DoesNotExist:
-            return addr
+            return str(address)
 
 
-def check_server_ip(addr):
-    """Verify that the server IP is valid"""
+def check_ip(addr):
+    """Verify that the server/client IP is valid"""
     addr = netaddr.IPAddress(addr)
     if addr.version != 4 or not addr.is_private():
         raise ValidationError("Only private IPv4 networks are supported.")
-    if not 0 < addr.words[-1] < 254 or addr.words[-1] % 2:
-        raise ValidationError("Server IP's last octet must be even in the "
-                              "range [2,254].")
+    # if not 0 < addr.words[-1] < 254 or addr.words[-1] % 2:
+    #     raise ValidationError("Server IP's last octet must be even in the "
+    #                           "range [2,254].")
 
 
-def check_destination_ip(addr):
-    """Verify that remote IP belongs to a private host"""
-    addr = netaddr.IPAddress(addr)
-    if addr.version != 4 or not addr.is_private():
-        raise ValidationError("Only private IPv4 networks are supported.")
+# def check_destination_ip(addr):
+#     """Verify that remote IP belongs to a private host"""
+#     addr = netaddr.IPAddress(addr)
+#     if addr.version != 4 or not addr.is_private():
+#         raise ValidationError("Only private IPv4 networks are supported.")
 
 
 def pick_port(_port):
@@ -117,21 +120,22 @@ class BaseModel(models.Model):
 
 class Tunnel(BaseModel):
     server = models.GenericIPAddressField(protocol='IPv4',
-                                          default=chose_server_ip,
-                                          validators=[check_server_ip],
+                                          validators=[check_ip],
                                           unique=True)
+    client = models.GenericIPAddressField(protocol='IPv4',
+                                          validators=[check_ip])
     key = models.TextField(default=gen_key, blank=False, unique=True)
 
     @property
     def name(self):
         return '%s%s' % (IFACE_PREFIX, self.id)
 
-    @property
-    def client(self):
-        if self.server:
-            octets = self.server.split('.')
-            octets.append(str(int(octets.pop()) + 1))
-            return '.'.join(octets)
+    # @property
+    # def client(self):
+    #     if self.server:
+    #         octets = self.server.split('.')
+    #         octets.append(str(int(octets.pop()) + 1))
+    #         return '.'.join(octets)
 
     @property
     def port(self):
@@ -172,7 +176,6 @@ class Tunnel(BaseModel):
         stop_tunnel(self)
 
     def __str__(self):
-        return self.name
         return '%s %s -> %s (port %s)' % (self.name, self.server,
                                           self.client, self.port)
 
@@ -189,7 +192,7 @@ class Tunnel(BaseModel):
 
     def delete(self, *args, **kwargs):
         """Disable and delete all forwardings before deleting tunnel"""
-        for forwarding in self.forwarding_set:
+        for forwarding in Forwarding.objects.filter(tunnel=self):
             forwarding.delete()
         super(Tunnel, self).delete(*args, **kwargs)
 
@@ -197,7 +200,7 @@ class Tunnel(BaseModel):
 class Forwarding(BaseModel):
     tunnel = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
     dst_addr = models.GenericIPAddressField(protocol='IPv4',
-                                            validators=[check_destination_ip])
+                                            validators=[check_ip])
     dst_port = models.IntegerField()
     loc_port = models.IntegerField(unique=True)
     src_addr = models.GenericIPAddressField(protocol='IPv4')
