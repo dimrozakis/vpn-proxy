@@ -197,8 +197,8 @@ test_peer_targets() {
 test_targets_server() {
     header "Test that the targets can probe the server through the proxies"
     for i in {1..2}; do
-        local ip="172.17.17.$((2*$i))"
-        local rule="PREROUTING -t nat -p tcp --dport 81 -j DNAT --to $ip:80"
+        local ip="172.17.17.$((2*$i+1))"
+        local rule="PREROUTING -t nat -p tcp --destination-port 81 -j DNAT --to-destination $ip:80"
         local cmd="sudo iptables -C $rule || sudo iptables -A $rule"
         echo "Forward all traffic coming to proxy$i:81 to server:80:"
         echo "  iptables -A $rule"
