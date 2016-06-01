@@ -3,7 +3,7 @@ from django.http import JsonResponse as _JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 
-from .models import Tunnel, Forwarding, pick_port
+from .models import Tunnel, Forwarding, choose_server_ip, pick_port
 
 import subprocess
 import pingparser
@@ -20,19 +20,23 @@ class JsonResponse(_JsonResponse):
 def tunnels(request):
     if request.method == 'POST':
         params = {}
-        if 'server' in request.POST:
-            params['server'] = request.POST['server']
+        client_addr = request.POST['client']
+        params['client'] = client_addr
+        params['server'] = choose_server_ip(client_addr)
         tun = Tunnel(**params)
         tun.save()
         return JsonResponse(tun.to_dict())
     return JsonResponse(map(Tunnel.to_dict, Tunnel.objects.all()))
 
 
-@require_http_methods(['GET', 'POST'])
+@require_http_methods(['GET', 'POST', 'DELETE'])
 def tunnel(request, tunel_id):
     tun = get_object_or_404(Tunnel, pk=tunel_id)
     if request.method == 'POST':
         tun.enable()
+    elif request.method == 'DELETE':
+        tun.delete()
+        return HttpResponse('OK', status=200)
     return JsonResponse(tun.to_dict())
 
 
