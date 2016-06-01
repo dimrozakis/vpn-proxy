@@ -76,8 +76,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     # Set up openvpn server
     (1..2).each do |i|
       server.vm.provision "shell",
-        inline: "echo \"Attempting to create tunnel 1\" && " \
-                "curl -s -X POST -d server=172.17.17.#{2*i} " \
+        inline: "echo \"Attempting to create tunnel #{i}\" && " \
+                "curl -s -X POST -d client=172.17.17.#{2*i} " \
                 "192.168.69.100:8080/  > /dev/null 2>&1 || echo \"Error..?\""
       server.vm.provision "shell",
         run: "always",
