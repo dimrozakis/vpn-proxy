@@ -37,4 +37,3 @@ echo 'from project.createsuperuser import main; main()' | \
 
 mkdir -p $DIR/tmp
 
-echo 1 > /proc/sys/net/ipv4/ip_forward
