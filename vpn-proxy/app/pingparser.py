@@ -51,12 +51,12 @@ def parse(ping_output):
 
     return {
         # 'host': host,
-        'packets_tx': sent,
-        'packets_rx': received,
-        'packets_loss': packet_loss,
-        'rtt_min': minping,
-        'rtt_avg': avgping,
-        'rtt_max': maxping
+        'packets_tx': int(sent),
+        'packets_rx': int(received),
+        'packets_loss': float(packet_loss),
+        'rtt_min': float(minping),
+        'rtt_avg': float(avgping),
+        'rtt_max': float(maxping)
     }
 
 
