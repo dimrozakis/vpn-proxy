@@ -56,24 +56,22 @@ EOF
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # Use ubuntu for all vm's. This would also work with debian/jessie64.
-  config.vm.box = "ubuntu/trusty64"
+  config.vm.box = "ubuntu/trusty32"
 
   # Create a `server` vm, connected to 2 proxies.
   config.vm.define "server", primary: true do |server|
     server.vm.hostname = "server"
-    server.vm.network "public_network", bridge: "wlan0"
+    server.vm.network "public_network", bridge: "wlan0",
+      ip: "192.168.2.232"
     server.vm.network :forwarded_port, guest: 22, host: 2223, id:"ssh"
-    server.vm.provision "shell",
-      run: "always",
-      inline: "ifconfig eth1 192.168.2.232 netmask 255.255.255.0 up"
-    server.vm.provision "shell",
-      run: "always",
-      inline: "echo 1 | sudo tee -a /proc/sys/net/ipv4/ip_forward"
     server.vm.network "private_network",
       virtualbox__intnet: "vpnproxy-wan",
       ip: "192.168.75.100"
     server.vm.provision "shell",
       inline: "/vagrant/scripts/install.sh"
+    server.vm.provision "shell",
+      run: "always",
+      inline: "echo 1 | sudo tee -a /proc/sys/net/ipv4/ip_forward > /dev/null"
     server.vm.provision "shell",
       run: "always",
       inline: "nohup /vagrant/vpn-proxy/manage.py " \
@@ -98,6 +96,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # Create two `proxy` vm's connected to `server` with each proxy also
   # connected via a private network (same address space) to a `target` server.
+  # Manually request a new VPN tunnel and deploy the configration scripts, just
+  # like in a real-time scenario.
   (1..2).each do |i|
     config.vm.define "proxy#{i}" do |proxy|
       proxy.vm.hostname = "proxy#{i}"
