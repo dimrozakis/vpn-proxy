@@ -15,29 +15,45 @@ from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
 IFACE_PREFIX = 'vpn-proxy-tun'
 SERVER_PORT_START = 1195
-# VPN_ADDRESSES = '172.17.17.0/24'
-VPN_ADDRESSES = ['192.168.0.0/16', '172.16.0.0/12', '10.0.0.0/8']
+VPN_ADDRESSES = ['192.168.0.0/16', '172.16.0.0/12', '10.0.0.0/8']  # TODO
 
 log = logging.getLogger(__name__)
 
 
 def choose_server_ip(addr):
-    """Find an available server IP in the given network (CIDR notation)"""
+    """Find an available server IP in the given network (CIDR notation)
+    based on the client IP supplied"""
     address = netaddr.IPAddress(addr)
-    if address.version != 4 or not address.is_private():
-        raise Exception("Only private IPv4 networks are supported.")
-    for network in VPN_ADDRESSES:
+    for network in VPN_ADDRESSES:  # TODO extend iteration
         if address in netaddr.IPNetwork(network):
             cidr = netaddr.IPNetwork(network)
             break
+    else:
+        raise ValidationError('IP address is outside the specified range')
     while True:
         address += 1
-        if address not in cidr:
-            address = cidr.ip + 1
+        if address not in cidr or address == cidr.broadcast:
+            address = cidr.network + 1
         try:
             Tunnel.objects.get(server=str(address))
         except Tunnel.DoesNotExist:
             return str(address)
+
+
+def choose_client_ip(networks=VPN_ADDRESSES):
+    """Find an available client IP in one of the available private networks"""
+    for network in reversed(networks):
+        cidr = netaddr.IPNetwork(network)
+        first, last = cidr.first, cidr.last
+        address = netaddr.IPAddress(random.randrange(first + 1, last))
+        while True:
+            if address not in cidr or address == cidr.broadcast:
+                break
+            try:
+                Tunnel.objects.get(client=str(address))
+                address += 1
+            except Tunnel.DoesNotExist:
+                return str(address)
 
 
 def check_ip(addr):
@@ -58,7 +74,7 @@ def check_ip(addr):
 
 
 def pick_port(_port):
-    """Find next available port based on Ports.
+    """Find next available port based on Forwarding.
     This function is used directly by views.py"""
     for _ in range(100):
         try:

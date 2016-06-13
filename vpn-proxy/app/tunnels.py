@@ -5,7 +5,7 @@ import tempfile
 import subprocess
 
 
-REMOTE_IP = '192.168.75.100'
+REMOTE_IP = '192.168.75.100'  # TODO
 IFACE_PREFIX = 'vpn-proxy-tun'
 SERVER_PORT_START = 1195
 VPN_ADDRESSES = '172.17.17.0/24'

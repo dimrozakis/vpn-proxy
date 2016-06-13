@@ -3,7 +3,8 @@ from django.http import JsonResponse as _JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 
-from .models import Tunnel, Forwarding, choose_server_ip, pick_port
+from .models import Tunnel, Forwarding
+from .models import choose_server_ip, choose_client_ip, pick_port
 
 import subprocess
 import pingparser
@@ -21,6 +22,8 @@ def tunnels(request):
     if request.method == 'POST':
         params = {}
         client_addr = request.POST['client']
+        if not client_addr:
+            client_addr = choose_client_ip()
         params['client'] = client_addr
         params['server'] = choose_server_ip(client_addr)
         tun = Tunnel(**params)
