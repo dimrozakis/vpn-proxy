@@ -61,16 +61,6 @@ def check_ip(addr):
     addr = netaddr.IPAddress(addr)
     if addr.version != 4 or not addr.is_private():
         raise ValidationError("Only private IPv4 networks are supported.")
-    # if not 0 < addr.words[-1] < 254 or addr.words[-1] % 2:
-    #     raise ValidationError("Server IP's last octet must be even in the "
-    #                           "range [2,254].")
-
-
-# def check_destination_ip(addr):
-#     """Verify that remote IP belongs to a private host"""
-#     addr = netaddr.IPAddress(addr)
-#     if addr.version != 4 or not addr.is_private():
-#         raise ValidationError("Only private IPv4 networks are supported.")
 
 
 def pick_port(_port):
@@ -146,13 +136,6 @@ class Tunnel(BaseModel):
     def name(self):
         return '%s%s' % (IFACE_PREFIX, self.id)
 
-    # @property
-    # def client(self):
-    #     if self.server:
-    #         octets = self.server.split('.')
-    #         octets.append(str(int(octets.pop()) + 1))
-    #         return '.'.join(octets)
-
     @property
     def port(self):
         return (SERVER_PORT_START + self.id - 1) if self.id else None
@@ -215,8 +198,7 @@ class Tunnel(BaseModel):
 
 class Forwarding(BaseModel):
     tunnel = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
-    dst_addr = models.GenericIPAddressField(protocol='IPv4',
-                                            validators=[check_ip])
+    dst_addr = models.GenericIPAddressField(protocol='IPv4')
     dst_port = models.IntegerField()
     loc_port = models.IntegerField(unique=True)
     src_addr = models.GenericIPAddressField(protocol='IPv4')
