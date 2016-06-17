@@ -45,7 +45,7 @@ def choose_client_ip(networks=VPN_ADDRESSES):
     for network in reversed(networks):
         cidr = netaddr.IPNetwork(network)
         first, last = cidr.first, cidr.last
-        address = netaddr.IPAddress(random.randrange(first + 1, last))
+        address = pick_address(first + 1, last)
         while True:
             if address not in cidr or address == cidr.broadcast:
                 break
@@ -63,10 +63,20 @@ def check_ip(addr):
         raise ValidationError("Only private IPv4 networks are supported.")
 
 
+def pick_address(first, last):
+    """Pick a client IP address in the specified range
+    (odd last octet by default)"""
+    address = random.randrange(first, last)
+    if not address % 2:
+        address += 1
+    address = netaddr.IPAddress(address)
+    return address
+
+
 def pick_port(_port):
     """Find next available port based on Forwarding.
     This function is used directly by views.py"""
-    for _ in range(100):
+    for _ in range(100):  # TODO more iterations
         try:
             Forwarding.objects.get(loc_port=_port)
             _port += 1
