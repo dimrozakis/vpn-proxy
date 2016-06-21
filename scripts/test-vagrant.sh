@@ -87,29 +87,24 @@ test_selfprobe() {
     columns
     assert_probe server 127.0.0.1 server
     assert_probe server 192.168.75.100 server
-    assert_probe server 192.168.69.100 server
+    assert_probe server 192.168.2.232 server
     assert_probe server 172.17.17.2 server
     assert_probe server 172.17.17.4 server
-    echo
-    subheader "peer"
-    columns
-    assert_probe peer 127.0.0.1 peer
-    assert_probe peer 192.168.69.69 peer
     echo
     subheader "proxy1"
     columns
     assert_probe proxy1 127.0.0.1 proxy1
     assert_probe proxy1 192.168.75.101 proxy1
     assert_probe proxy1 10.75.75.10 proxy1
-    assert_probe proxy1 10.75.76.10 proxy1
+    assert_probe proxy1 10.75.77.10 proxy1
     assert_probe proxy1 172.17.17.3 proxy1
     echo
     subheader "proxy2"
     columns
     assert_probe proxy2 127.0.0.1 proxy2
     assert_probe proxy2 192.168.75.102 proxy2
-    assert_probe proxy2 10.75.75.10 proxy2
-    assert_probe proxy2 10.75.77.10 proxy2
+    assert_probe proxy2 10.75.76.10 proxy2
+    assert_probe proxy2 10.75.78.10 proxy2
     assert_probe proxy2 172.17.17.5 proxy2
     echo
     subheader "target1"
@@ -120,17 +115,17 @@ test_selfprobe() {
     subheader "target2"
     columns
     assert_probe target2 127.0.0.1 target2
-    assert_probe target2 10.75.75.75 target2
+    assert_probe target2 10.75.76.75 target2
     echo
     subheader "target3"
     columns
     assert_probe target3 127.0.0.1 target3
-    assert_probe target3 10.75.76.75 target3
+    assert_probe target3 10.75.77.75 target3
     echo
     subheader "target4"
     columns
     assert_probe target4 127.0.0.1 target4
-    assert_probe target4 10.75.77.75 target4
+    assert_probe target4 10.75.78.75 target4
 }
 
 test_proxy_targets() {
@@ -142,18 +137,18 @@ test_proxy_targets() {
     echo
     subheader "proxy1 <-> target3"
     columns
-    assert_probe proxy1 10.75.76.75 target3
-    assert_probe target3 10.75.76.10 proxy1
+    assert_probe proxy1 10.75.77.75 target3
+    assert_probe target3 10.75.77.10 proxy1
     echo
     subheader "proxy2 <-> target2"
     columns
-    assert_probe proxy2 10.75.75.75 target2
-    assert_probe target2 10.75.75.10 proxy2
+    assert_probe proxy2 10.75.76.75 target2
+    assert_probe target2 10.75.76.10 proxy2
     echo
     subheader "proxy2 <-> target4"
     columns
-    assert_probe proxy2 10.75.77.75 target4
-    assert_probe target4 10.75.77.10 proxy2
+    assert_probe proxy2 10.75.78.75 target4
+    assert_probe target4 10.75.78.10 proxy2
 }
 
 test_server_proxies() {
@@ -169,35 +164,19 @@ test_server_proxies() {
     assert_probe proxy2 192.168.75.100 server
 }
 
-test_peer_server() {
-    header "Test that the peer can probe with the server"
-    columns
-    assert_probe peer 192.168.69.100 server
-    assert_probe server 192.168.69.69 peer
-}
-
 test_server_targets() {
     header "Test that the server can probe the targets through the proxies"
     columns
     assert_probe server 10.75.75.75 target1 vpn-proxy-tun1
-    assert_probe server 10.75.75.75 target2 vpn-proxy-tun2
-    assert_probe server 10.75.76.75 target3 vpn-proxy-tun1
-    assert_probe server 10.75.77.75 target4 vpn-proxy-tun2
-}
-
-test_peer_targets() {
-    header "Test that the peer can probe the targets through the vpn-proxy"
-    columns
-    local port1=$(cat $DIR/tmp/target1_port.txt)
-    local port2=$(cat $DIR/tmp/target2_port.txt)
-    assert_probe peer 192.168.69.100:$port1 target1
-    assert_probe peer 192.168.69.100:$port2 target2
+    assert_probe server 10.75.76.75 target2 vpn-proxy-tun2
+    assert_probe server 10.75.77.75 target3 vpn-proxy-tun1
+    assert_probe server 10.75.78.75 target4 vpn-proxy-tun2
 }
 
 test_targets_server() {
     header "Test that the targets can probe the server through the proxies"
     for i in {1..2}; do
-        local ip="172.17.17.$((2*$i+1))"
+        local ip="172.17.17.$((2*$i))"
         local rule="PREROUTING -t nat -p tcp --destination-port 81 -j DNAT --to-destination $ip:80"
         local cmd="sudo iptables -C $rule || sudo iptables -A $rule"
         echo "Forward all traffic coming to proxy$i:81 to server:80:"
@@ -207,9 +186,9 @@ test_targets_server() {
     echo
     columns
     assert_probe target1 10.75.75.10:81 server
-    assert_probe target3 10.75.76.10:81 server
-    assert_probe target2 10.75.75.10:81 server
-    assert_probe target4 10.75.77.10:81 server
+    assert_probe target3 10.75.77.10:81 server
+    assert_probe target2 10.75.76.10:81 server
+    assert_probe target4 10.75.78.10:81 server
 }
 
 test() {
