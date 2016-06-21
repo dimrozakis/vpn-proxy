@@ -24,20 +24,23 @@ def choose_server_ip(addr):
     """Find an available server IP in the given network (CIDR notation)
     based on the client IP supplied"""
     address = netaddr.IPAddress(addr)
-    for network in VPN_ADDRESSES:  # TODO extend iteration
+    # if client address is even (non-default behavior), make sure that the
+    # server IP will be, so as to have odd-even IP pairs
+    if not address.value % 2:
+        address -= 2
+    for network in reversed(VPN_ADDRESSES):
         if address in netaddr.IPNetwork(network):
             cidr = netaddr.IPNetwork(network)
-            break
+            for _ in range(cidr.first + 1, cidr.last):
+                address += 1
+                if address not in cidr or address == cidr.broadcast:
+                    address = cidr.network + 1
+                try:
+                    Tunnel.objects.get(server=str(address))
+                except Tunnel.DoesNotExist:
+                    return str(address)
     else:
         raise ValidationError('IP address is outside the specified range')
-    while True:
-        address += 1
-        if address not in cidr or address == cidr.broadcast:
-            address = cidr.network + 1
-        try:
-            Tunnel.objects.get(server=str(address))
-        except Tunnel.DoesNotExist:
-            return str(address)
 
 
 def choose_client_ip(networks=VPN_ADDRESSES):
@@ -45,13 +48,14 @@ def choose_client_ip(networks=VPN_ADDRESSES):
     for network in reversed(networks):
         cidr = netaddr.IPNetwork(network)
         first, last = cidr.first, cidr.last
-        address = pick_address(first + 1, last)
+        address = pick_address(first + 1, last - 1)
         while True:
-            if address not in cidr or address == cidr.broadcast:
-                break
             try:
                 Tunnel.objects.get(client=str(address))
-                address += 1
+                address += 2
+                if address not in cidr or address == cidr.broadcast:
+                    break
+                # TODO make sure to iterate over the entire CIDR
             except Tunnel.DoesNotExist:
                 return str(address)
 
@@ -76,7 +80,7 @@ def pick_address(first, last):
 def pick_port(_port):
     """Find next available port based on Forwarding.
     This function is used directly by views.py"""
-    for _ in range(100):  # TODO more iterations
+    for _ in range(60000):
         try:
             Forwarding.objects.get(loc_port=_port)
             _port += 1
@@ -87,7 +91,7 @@ def pick_port(_port):
 class BaseModel(models.Model):
     """Abstract base model to be used by Tunnel and Forwarding"""
 
-    active = models.BooleanField(default=True)
+    active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
