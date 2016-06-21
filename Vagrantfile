@@ -14,7 +14,7 @@ TOPOLOGY = <<EOF
                                     |
                              192.168.2.232      
                                 --------
-   vpn-proxy-tun1: 172.17.17.3 |        | vpn-proxy-tun2: 172.17.17.5
+   vpn-proxy-tun1: 172.17.17.2 |        | vpn-proxy-tun2: 172.17.17.4
                           #####| SERVER |#####
  OpenVPN point to point  #     |        |     #  OpenVPN point to point
         tunnel over WAN  #      --------      #  tunnel over WAN
@@ -26,7 +26,7 @@ TOPOLOGY = <<EOF
                #  |               (WAN)               |  #
                #  |                                   |  #
                #  |                                   |  #
-   172.17.17.2 #  | 192.168.75.101     192.168.75.102 |  # 172.17.17.4
+   172.17.17.3 #  | 192.168.75.101     192.168.75.102 |  # 172.17.17.5
              --------                               --------
             |        | 10.75.75.10     10.75.76.10 |        |
             | PROXY1 |____                     ____| PROXY2 |
@@ -56,7 +56,7 @@ EOF
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # Use ubuntu for all vm's. This would also work with debian/jessie64.
-  config.vm.box = "ubuntu/trusty32"
+  config.vm.box = "ubuntu/trusty64"
 
   # Create a `server` vm, connected to 2 proxies.
   config.vm.define "server", primary: true do |server|
@@ -71,33 +71,28 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       inline: "/vagrant/scripts/install.sh"
     server.vm.provision "shell",
       run: "always",
-      inline: "echo 1 | sudo tee -a /proc/sys/net/ipv4/ip_forward > /dev/null"
-    server.vm.provision "shell",
-      run: "always",
       inline: "nohup /vagrant/vpn-proxy/manage.py " \
               "runserver 192.168.2.232:8080 " \
               "> /var/log/django.log 2>&1 </dev/null & sleep 5"
     # Set up openvpn server
-    #(1..2).each do |i|
-    #  server.vm.provision "shell",
-    #    inline: "echo \"Attempting to create tunnel #{i}\" && " \
-    #            "curl -s -X POST -d client=172.17.17.#{2*i} " \
-    #            "192.168.2.232:8080/  > /dev/null 2>&1 || echo \"Error..?\""
-    #  server.vm.provision "shell",
-    #    run: "always",
-    #    inline: "curl -s -X POST 192.168.2.232:8080/#{i}/"
-    #  server.vm.provision "shell",
-    #    run: "always",
-    #    inline: "curl -s 192.168.2.232:8080/#{i}/client_script/ " \
-    #            "> /vagrant/tmp/proxy#{i}.sh"
-    #end
+    (1..2).each do |i|
+      server.vm.provision "shell",
+        inline: "echo \"Attempting to create tunnel #{i}\" && " \
+                "curl -s -X POST -d client=172.17.17.#{2*i} " \
+                "192.168.2.232:8080/  > /dev/null 2>&1 || echo \"Error..?\""
+      server.vm.provision "shell",
+        run: "always",
+        inline: "curl -s -X POST 192.168.2.232:8080/#{i}/"
+      server.vm.provision "shell",
+        run: "always",
+        inline: "curl -s 192.168.2.232:8080/#{i}/client_script/ " \
+                "> /vagrant/tmp/proxy#{i}.sh"
+    end
     server.vm.post_up_message = TOPOLOGY
   end
 
   # Create two `proxy` vm's connected to `server` with each proxy also
   # connected via a private network (same address space) to a `target` server.
-  # Manually request a new VPN tunnel and deploy the configration scripts, just
-  # like in a real-time scenario.
   (1..2).each do |i|
     config.vm.define "proxy#{i}" do |proxy|
       proxy.vm.hostname = "proxy#{i}"
@@ -111,9 +106,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       proxy.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{2+i}",
         ip: "10.75.#{76+i}.10"
-    #  proxy.vm.provision "shell",
-    #    run: "always",
-    #    inline: "bash /vagrant/tmp/proxy#{i}.sh"
+      proxy.vm.provision "shell",
+        run: "always",
+        inline: "bash /vagrant/tmp/proxy#{i}.sh"
     end
   end
 
