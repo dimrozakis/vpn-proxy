@@ -15,7 +15,6 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.9/howto/deployment/checklist/
 
@@ -25,8 +24,13 @@ SECRET_KEY = 'j85314t$+^le-kx$x&$&tb3*$_3q^lmz7y)vcq8e=@7jhi2tv8'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+# IP addressing settings
+# ALLOWED_HOSTS = ['192.168.0.0/16', '172.16.0.0/12', '10.0.0.0/8']
+# EXCLUDED_HOSTS = []
+VPN_SERVER_REMOTE_ADDRESS = '192.168.75.100'
+# SERVER_PORT_START = 1195
+# SERVER_PORT_END = ''
+# IFACE_PREFIX = ''
 
 # Application definition
 

@@ -7,15 +7,19 @@ import netaddr
 
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.conf import settings
 
 from .tunnels import start_tunnel, stop_tunnel, gen_key
 from .tunnels import get_conf, get_client_conf, get_client_script
 from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
 
-IFACE_PREFIX = 'vpn-proxy-tun'
-SERVER_PORT_START = 1195
-VPN_ADDRESSES = ['192.168.0.0/16', '172.16.0.0/12', '10.0.0.0/8']  # TODO
+IFACE_PREFIX = getattr(settings, 'IFACE_PREFIX', 'vpn-proxy-tun')
+SERVER_PORT_START = getattr(settings, 'SERVER_PORT_START', 1195)
+ALLOWED_VPN_ADDRESSES = getattr(settings, 'ALLOWED_HOSTS', ['192.168.0.0/16',
+                                                            '172.16.0.0/12',
+                                                            '10.0.0.0/8'])
+EXCLUDED_VPN_ADDRESSES = getattr(settings, 'EXCLUDED_HOSTS', [])
 
 log = logging.getLogger(__name__)
 
@@ -25,10 +29,10 @@ def choose_server_ip(addr):
     based on the client IP supplied"""
     address = netaddr.IPAddress(addr)
     # if client address is even (non-default behavior), make sure that the
-    # server IP will be, so as to have odd-even IP pairs
+    # server IP's last octet is odd, so as to have odd-even IP pairs
     if not address.value % 2:
         address -= 2
-    for network in reversed(VPN_ADDRESSES):
+    for network in reversed(ALLOWED_VPN_ADDRESSES):
         if address in netaddr.IPNetwork(network):
             cidr = netaddr.IPNetwork(network)
             for _ in range(cidr.first + 1, cidr.last):
@@ -43,7 +47,7 @@ def choose_server_ip(addr):
         raise ValidationError('IP address is outside the specified range')
 
 
-def choose_client_ip(networks=VPN_ADDRESSES):
+def choose_client_ip(networks=ALLOWED_VPN_ADDRESSES):
     """Find an available client IP in one of the available private networks"""
     for network in reversed(networks):
         cidr = netaddr.IPNetwork(network)
