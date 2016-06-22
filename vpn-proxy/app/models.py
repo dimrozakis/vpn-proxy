@@ -6,6 +6,7 @@ import logging
 import netaddr
 
 from django.db import models
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.conf import settings
 
@@ -24,27 +25,38 @@ EXCLUDED_VPN_ADDRESSES = getattr(settings, 'EXCLUDED_HOSTS', [])
 log = logging.getLogger(__name__)
 
 
-def choose_server_ip(addr):
+def choose_server_ip(addr, networks=ALLOWED_VPN_ADDRESSES):
     """Find an available server IP in the given network (CIDR notation)
     based on the client IP supplied"""
     address = netaddr.IPAddress(addr)
-    # if client address is even (non-default behavior), make sure that the
-    # server IP's last octet is odd, so as to have odd-even IP pairs
-    if not address.value % 2:
-        address -= 2
-    for network in reversed(ALLOWED_VPN_ADDRESSES):
+    for network in networks:
         if address in netaddr.IPNetwork(network):
-            cidr = netaddr.IPNetwork(network)
-            for _ in range(cidr.first + 1, cidr.last):
-                address += 1
-                if address not in cidr or address == cidr.broadcast:
-                    address = cidr.network + 1
-                try:
-                    Tunnel.objects.get(server=str(address))
-                except Tunnel.DoesNotExist:
-                    return str(address)
+            # start iterating over the CIDR the IP belongs to
+            networks.remove(network)
+            networks.append(network)
+            break
     else:
-        raise ValidationError('IP address is outside the specified range')
+        raise ValidationError('IP address is outside the supported range')
+    for network in reversed(networks):
+        cidr = netaddr.IPNetwork(network)
+        exc_nets = []
+        for exc_net in EXCLUDED_VPN_ADDRESSES:
+            if netaddr.IPNetwork(exc_net) in cidr:
+                exc_nets.append(netaddr.IPNetwork(exc_net))
+        # a list of unique, non-overlapping supernets
+        exc_nets = netaddr.IPSet(exc_nets).iter_cidrs()
+        for _ in range(cidr.first + 1, cidr.last):
+            address += 1
+            if address not in cidr or address == cidr.broadcast:
+                address = cidr.network + 1
+            for exc_net in exc_nets:
+                if address in exc_net:
+                    address = netaddr.IPAddress(exc_net.last + 1)
+            try:
+                Tunnel.objects.get(Q(server=str(address)) |
+                                   Q(client=str(address)))
+            except Tunnel.DoesNotExist:
+                return str(address)
 
 
 def choose_client_ip(networks=ALLOWED_VPN_ADDRESSES):
@@ -52,14 +64,13 @@ def choose_client_ip(networks=ALLOWED_VPN_ADDRESSES):
     for network in reversed(networks):
         cidr = netaddr.IPNetwork(network)
         first, last = cidr.first, cidr.last
-        address = pick_address(first + 1, last - 1)
-        while True:
+        address = netaddr.IPAddress(random.randrange(first + 1, last - 1))
+        for _ in range(first + 1, last):
             try:
                 Tunnel.objects.get(client=str(address))
-                address += 2
+                address += 1
                 if address not in cidr or address == cidr.broadcast:
-                    break
-                # TODO make sure to iterate over the entire CIDR
+                    address = cidr.network + 1
             except Tunnel.DoesNotExist:
                 return str(address)
 
@@ -69,16 +80,6 @@ def check_ip(addr):
     addr = netaddr.IPAddress(addr)
     if addr.version != 4 or not addr.is_private():
         raise ValidationError("Only private IPv4 networks are supported.")
-
-
-def pick_address(first, last):
-    """Pick a client IP address in the specified range
-    (odd last octet by default)"""
-    address = random.randrange(first, last)
-    if not address % 2:
-        address += 1
-    address = netaddr.IPAddress(address)
-    return address
 
 
 def pick_port(_port):

@@ -8,9 +8,6 @@ import subprocess
 
 
 REMOTE_IP = getattr(settings, 'VPN_SERVER_REMOTE_ADDRESS')
-# IFACE_PREFIX = 'vpn-proxy-tun'
-# SERVER_PORT_START = 1195
-# VPN_ADDRESSES = '172.17.17.0/24'
 
 log = logging.getLogger(__name__)
 
