@@ -7,7 +7,7 @@ import tempfile
 import subprocess
 
 
-REMOTE_IP = getattr(settings, 'VPN_SERVER_REMOTE_ADDRESS')
+REMOTE_IP = settings.VPN_SERVER_REMOTE_ADDRESS
 
 log = logging.getLogger(__name__)
 

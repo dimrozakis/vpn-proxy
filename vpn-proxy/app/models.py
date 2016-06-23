@@ -15,12 +15,10 @@ from .tunnels import get_conf, get_client_conf, get_client_script
 from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
 
-IFACE_PREFIX = getattr(settings, 'IFACE_PREFIX', 'vpn-proxy-tun')
-SERVER_PORT_START = getattr(settings, 'SERVER_PORT_START', 1195)
-ALLOWED_VPN_ADDRESSES = getattr(settings, 'ALLOWED_HOSTS', ['192.168.0.0/16',
-                                                            '172.16.0.0/12',
-                                                            '10.0.0.0/8'])
-EXCLUDED_VPN_ADDRESSES = getattr(settings, 'EXCLUDED_HOSTS', [])
+IFACE_PREFIX = settings.IFACE_PREFIX
+SERVER_PORT_START = settings.SERVER_PORT_START
+ALLOWED_VPN_ADDRESSES = settings.ALLOWED_HOSTS
+EXCLUDED_VPN_ADDRESSES = settings.EXCLUDED_HOSTS
 
 log = logging.getLogger(__name__)
 
