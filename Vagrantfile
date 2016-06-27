@@ -78,7 +78,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     (1..2).each do |i|
       server.vm.provision "shell",
         inline: "echo \"Attempting to create tunnel #{i}\" && " \
-                "curl -s -X POST -d client=172.17.17.#{2*i} " \
+                "curl -s -X POST -d cidrs=10.75.#{74+i}.0/24 " \
                 "192.168.2.232:8080/  > /dev/null 2>&1 || echo \"Error..?\""
       server.vm.provision "shell",
         run: "always",
