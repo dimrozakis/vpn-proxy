@@ -23,33 +23,32 @@ EXCLUDED_VPN_ADDRESSES = settings.EXCLUDED_HOSTS
 log = logging.getLogger(__name__)
 
 
-def choose_server_ip(addr, networks=ALLOWED_VPN_ADDRESSES):
+# TODO docstring
+def choose_server_ip(addr, exc_nets):
     """Find an available server IP in the given network (CIDR notation)
     based on the client IP supplied"""
     address = netaddr.IPAddress(addr)
-    for network in networks:
+    for network in ALLOWED_VPN_ADDRESSES:
         if address in netaddr.IPNetwork(network):
             # start iterating over the CIDR the IP belongs to
-            networks.remove(network)
-            networks.append(network)
+            ALLOWED_VPN_ADDRESSES.remove(network)
+            ALLOWED_VPN_ADDRESSES.append(network)
             break
     else:
         raise ValidationError('IP address is outside the supported range')
-    for network in reversed(networks):
+    for network in reversed(ALLOWED_VPN_ADDRESSES):
         cidr = netaddr.IPNetwork(network)
-        exc_nets = []
-        for exc_net in EXCLUDED_VPN_ADDRESSES:
-            if netaddr.IPNetwork(exc_net) in cidr:
-                exc_nets.append(netaddr.IPNetwork(exc_net))
-        # a list of unique, non-overlapping supernets
-        exc_nets = netaddr.IPSet(exc_nets).iter_cidrs()
-        for _ in range(cidr.first + 1, cidr.last):
+        first, last = cidr.first, cidr.last
+        for exc_net in exc_nets:
+            if exc_net in cidr:
+                last -= (exc_net.last - exc_net.first + 1)
+        for _ in range(first + 1, last):
             address += 1
-            if address not in cidr or address == cidr.broadcast:
-                address = cidr.network + 1
             for exc_net in exc_nets:
                 if address in exc_net:
                     address = netaddr.IPAddress(exc_net.last + 1)
+            if address not in cidr or address == cidr.broadcast:
+                address = cidr.network + 1
             try:
                 Tunnel.objects.get(Q(server=str(address)) |
                                    Q(client=str(address)))
@@ -57,20 +56,38 @@ def choose_server_ip(addr, networks=ALLOWED_VPN_ADDRESSES):
                 return str(address)
 
 
-def choose_client_ip(networks=ALLOWED_VPN_ADDRESSES):
+# TODO docstring
+def choose_client_ip(cidrs, excluded=[], exc_nets=EXCLUDED_VPN_ADDRESSES):
     """Find an available client IP in one of the available private networks"""
-    for network in reversed(networks):
+    for _ in reversed(exc_nets):
+        exc_nets.insert(0, netaddr.IPNetwork(exc_nets.pop()))
+    for exc_net in excluded:
+        exc_nets.append(netaddr.IPNetwork(exc_net))
+    for cidr in cidrs:
+        exc_nets.append(netaddr.IPNetwork(cidr))
+    # a list of unique, non-overlapping supernets
+    exc_nets = netaddr.IPSet(exc_nets).iter_cidrs()
+    for network in reversed(ALLOWED_VPN_ADDRESSES):
         cidr = netaddr.IPNetwork(network)
         first, last = cidr.first, cidr.last
-        address = netaddr.IPAddress(random.randrange(first + 1, last - 1))
+        address = netaddr.IPAddress(random.randrange(first + 1, last))
+        for exc_net in exc_nets:
+            if exc_net in cidr:
+                # reduce iterations by the range of the excluded private
+                # supernets that belong to the CIDR being iterated
+                last -= (exc_net.last - exc_net.first + 1)
         for _ in range(first + 1, last):
             try:
-                Tunnel.objects.get(client=str(address))
-                address += 1
+                for exc_net in exc_nets:
+                    if address in exc_net:
+                        address = netaddr.IPAddress(exc_net.last + 1)
                 if address not in cidr or address == cidr.broadcast:
                     address = cidr.network + 1
+                Tunnel.objects.get(Q(client=str(address)) |
+                                   Q(server=str(address)))
+                address += 1
             except Tunnel.DoesNotExist:
-                return str(address)
+                return str(address), exc_nets
 
 
 def check_ip(addr):

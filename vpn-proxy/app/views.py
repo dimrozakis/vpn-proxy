@@ -21,11 +21,11 @@ class JsonResponse(_JsonResponse):
 def tunnels(request):
     if request.method == 'POST':
         params = {}
-        client_addr = request.POST['client']
-        if not client_addr:
-            client_addr = choose_client_ip()
-        params['client'] = client_addr
-        params['server'] = choose_server_ip(client_addr)
+        cidrs = request.POST['cidrs']
+        excluded_cidrs = request.POST['excluded']
+        client, exc_nets = choose_client_ip(cidrs, excluded_cidrs)
+        params['client'] = client
+        params['server'] = choose_server_ip(client, exc_nets)
         tun = Tunnel(**params)
         tun.save()
         return JsonResponse(tun.to_dict())
