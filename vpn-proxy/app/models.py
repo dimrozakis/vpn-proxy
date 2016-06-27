@@ -23,7 +23,6 @@ EXCLUDED_VPN_ADDRESSES = settings.EXCLUDED_HOSTS
 log = logging.getLogger(__name__)
 
 
-# TODO docstring
 def choose_server_ip(addr, exc_nets):
     """Find an available server IP in the given network (CIDR notation)
     based on the client IP supplied"""
@@ -56,11 +55,11 @@ def choose_server_ip(addr, exc_nets):
                 return str(address)
 
 
-# TODO docstring
-def choose_client_ip(cidrs, excluded=[], exc_nets=EXCLUDED_VPN_ADDRESSES):
+def choose_client_ip(cidrs, excluded=[], reserved=EXCLUDED_VPN_ADDRESSES):
     """Find an available client IP in one of the available private networks"""
-    for _ in reversed(exc_nets):
-        exc_nets.insert(0, netaddr.IPNetwork(exc_nets.pop()))
+    exc_nets = []
+    for res_net in reserved:
+        exc_nets.append(netaddr.IPNetwork(res_net))
     for exc_net in excluded:
         exc_nets.append(netaddr.IPNetwork(exc_net))
     for cidr in cidrs:

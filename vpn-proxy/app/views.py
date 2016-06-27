@@ -21,8 +21,8 @@ class JsonResponse(_JsonResponse):
 def tunnels(request):
     if request.method == 'POST':
         params = {}
-        cidrs = request.POST['cidrs']
-        excluded_cidrs = request.POST['excluded']
+        cidrs = request.POST.getlist('cidrs')
+        excluded_cidrs = request.POST.getlist('excluded', [])
         client, exc_nets = choose_client_ip(cidrs, excluded_cidrs)
         params['client'] = client
         params['server'] = choose_server_ip(client, exc_nets)
