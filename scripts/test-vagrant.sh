@@ -57,6 +57,11 @@ assert_probe() {
     echo "OK"
 }
 
+get_ip() {
+    local cmd="/sbin/ifconfig | grep '^$2' -A 1 | grep 'inet addr' | cut -d: -f2 | sed 's/  P-t-P$//'"
+    vagrant ssh $1 -c "$cmd | tr -d '\r\n'" 2> /dev/null
+}
+
 columns() {
     printf "%-24s| %-12s| %-18s| %-12s| %s\n" \
         "When we probe" "from" "via" "we see" "check"
@@ -85,27 +90,31 @@ test_selfprobe() {
     header "Test that each server can probe itself on all interfaces"
     subheader "server"
     columns
+    local ip1=$(get_ip server mist-io-tun1)
+    local ip2=$(get_ip server mist-io-tun2)
     assert_probe server 127.0.0.1 server
     assert_probe server 192.168.75.100 server
-    assert_probe server 192.168.2.232 server
-    assert_probe server 172.17.17.2 server
-    assert_probe server 172.17.17.4 server
+    assert_probe server 192.168.69.100 server
+    assert_probe server $ip1 server
+    assert_probe server $ip2 server
     echo
     subheader "proxy1"
     columns
+    local ip=$(get_ip proxy1 mist-io-tun1)
     assert_probe proxy1 127.0.0.1 proxy1
     assert_probe proxy1 192.168.75.101 proxy1
     assert_probe proxy1 10.75.75.10 proxy1
     assert_probe proxy1 10.75.77.10 proxy1
-    assert_probe proxy1 172.17.17.3 proxy1
+    assert_probe proxy1 $ip proxy1
     echo
     subheader "proxy2"
     columns
+    local ip=$(get_ip proxy2 mist-io-tun2)
     assert_probe proxy2 127.0.0.1 proxy2
     assert_probe proxy2 192.168.75.102 proxy2
     assert_probe proxy2 10.75.76.10 proxy2
     assert_probe proxy2 10.75.78.10 proxy2
-    assert_probe proxy2 172.17.17.5 proxy2
+    assert_probe proxy2 $ip proxy2
     echo
     subheader "target1"
     columns
@@ -164,19 +173,35 @@ test_server_proxies() {
     assert_probe proxy2 192.168.75.100 server
 }
 
+test_peer_server() {
+    header "Test that the peer can probe with the server"
+    columns
+    assert_probe peer 192.168.69.100 server
+    assert_probe server 192.168.69.69 peer
+}
+
 test_server_targets() {
     header "Test that the server can probe the targets through the proxies"
     columns
-    assert_probe server 10.75.75.75 target1 vpn-proxy-tun1
-    assert_probe server 10.75.76.75 target2 vpn-proxy-tun2
-    assert_probe server 10.75.77.75 target3 vpn-proxy-tun1
-    assert_probe server 10.75.78.75 target4 vpn-proxy-tun2
+    assert_probe server 10.75.75.75 target1 mist-io-tun1
+    assert_probe server 10.75.76.75 target2 mist-io-tun2
+    assert_probe server 10.75.77.75 target3 mist-io-tun1
+    assert_probe server 10.75.78.75 target4 mist-io-tun2
+}
+
+test_peer_targets() {
+    header "Test that the peer can probe the targets through the vpn-proxy"
+    columns
+    local port1=$(cat $DIR/tmp/target1_port.txt)
+    local port2=$(cat $DIR/tmp/target2_port.txt)
+    assert_probe peer 192.168.69.100:$port1 target1
+    assert_probe peer 192.168.69.100:$port2 target2
 }
 
 test_targets_server() {
     header "Test that the targets can probe the server through the proxies"
     for i in {1..2}; do
-        local ip="172.17.17.$((2*$i))"
+        local ip=$(get_ip server mist-io-tun$i)
         local rule="PREROUTING -t nat -p tcp --destination-port 81 -j DNAT --to-destination $ip:80"
         local cmd="sudo iptables -C $rule || sudo iptables -A $rule"
         echo "Forward all traffic coming to proxy$i:81 to server:80:"
