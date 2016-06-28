@@ -263,13 +263,24 @@ def get_client_conf(tunnel):
 def get_client_script(tunnel):
     return """#!/bin/bash
 
-if ! which openvpn > /dev/null; then
-    if ! which apt-get > /dev/null; then
-        echo "Couldn't find apt-get to install OpenVPN."
+discover_cmd() {
+    echo "Searching for apt-get, yum, or zypper.."
+    if which apt-get > /dev/null; then
+        cmd='apt-get'
+    elif which yum > /dev/null; then
+        cmd='yum'
+    elif which zypper > /dev/null; then
+        cmd='zypper'
+    else
+        echo "Could not find a package management tool"
         exit 1
     fi
-    if ! apt-get install -y openvpn; then
-        apt-get update && apt-get install -y openvpn
+}
+
+if ! which openvpn > /dev/null; then
+    discover_cmd
+    if ! $cmd install -y openvpn; then
+        $cmd update && $cmd install -y openvpn
     fi
 fi
 
