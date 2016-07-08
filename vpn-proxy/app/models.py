@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import random
 import logging
 
-import netaddr
+from netaddr import IPAddress, IPNetwork, IPSet
 
 from django.db import models
 from django.db.models import Q
@@ -23,75 +23,52 @@ EXCLUDED_VPN_ADDRESSES = settings.EXCLUDED_HOSTS
 log = logging.getLogger(__name__)
 
 
-def choose_server_ip(addr, exc_nets):
-    """Find an available server IP in the given network (CIDR notation)
-    based on the client IP supplied"""
-    address = netaddr.IPAddress(addr)
+def choose_ip(routable_cidrs, excluded_cidrs=[],
+              reserved_cidrs=EXCLUDED_VPN_ADDRESSES, client_addr=''):
+    """
+    Find available IP addresses for both sides of a VPN Tunnel (client &
+    server) based on a list of available_cidrs. This method iterates over the
+    CIDRs contained in ALLOWED_VPN_ADDRESSES, while excluding the lists of
+    routable_cidrs, excluded_cidrs, and reserved_cidrs.
+    :param routable_cidrs: the CIDRs that are to be routed over the
+    particular VPN Tunnel
+    :param excluded_cidrs: an optional CIDRs list provided by the end user
+    in order to be excluded from the address allocation process
+    :param reserved_cidrs: CIDRs reserved for local usage
+    :param client_addr: since the client IP is allocated first, the client_addr
+    is used to attempt to pick an adjacent IP address for the server side.
+    Alternatively, this is an empty string
+    :return: a private IP address
+    """
+    exc_nets = routable_cidrs + excluded_cidrs + reserved_cidrs
+    # a list of unique, non-overlapping supernets (to be excluded)
+    exc_nets = IPSet(exc_nets).iter_cidrs()
     for network in ALLOWED_VPN_ADDRESSES:
-        if address in netaddr.IPNetwork(network):
-            # start iterating over the CIDR the IP belongs to
-            ALLOWED_VPN_ADDRESSES.remove(network)
-            ALLOWED_VPN_ADDRESSES.append(network)
-            break
-    else:
-        raise ValidationError('IP address is outside the supported range')
-    for network in reversed(ALLOWED_VPN_ADDRESSES):
-        cidr = netaddr.IPNetwork(network)
-        first, last = cidr.first, cidr.last
+        available_cidrs = IPSet(IPNetwork(network))
         for exc_net in exc_nets:
-            if exc_net in cidr:
-                last -= (exc_net.last - exc_net.first + 1)
-        for _ in range(first + 1, last):
-            address += 1
-            for exc_net in exc_nets:
-                if address in exc_net:
-                    address = netaddr.IPAddress(exc_net.last + 1)
-            if address not in cidr or address == cidr.broadcast:
-                address = cidr.network + 1
-            try:
-                Tunnel.objects.get(Q(server=str(address)) |
-                                   Q(client=str(address)))
-            except Tunnel.DoesNotExist:
-                return str(address)
-
-
-def choose_client_ip(cidrs, excluded=[], reserved=EXCLUDED_VPN_ADDRESSES):
-    """Find an available client IP in one of the available private networks"""
-    exc_nets = []
-    for res_net in reserved:
-        exc_nets.append(netaddr.IPNetwork(res_net))
-    for exc_net in excluded:
-        exc_nets.append(netaddr.IPNetwork(exc_net))
-    for cidr in cidrs:
-        exc_nets.append(netaddr.IPNetwork(cidr))
-    # a list of unique, non-overlapping supernets
-    exc_nets = netaddr.IPSet(exc_nets).iter_cidrs()
-    for network in reversed(ALLOWED_VPN_ADDRESSES):
-        cidr = netaddr.IPNetwork(network)
-        first, last = cidr.first, cidr.last
-        address = netaddr.IPAddress(random.randrange(first + 1, last))
-        for exc_net in exc_nets:
-            if exc_net in cidr:
-                # reduce iterations by the range of the excluded private
-                # supernets that belong to the CIDR being iterated
-                last -= (exc_net.last - exc_net.first + 1)
-        for _ in range(first + 1, last):
-            try:
-                for exc_net in exc_nets:
-                    if address in exc_net:
-                        address = netaddr.IPAddress(exc_net.last + 1)
+            available_cidrs.remove(exc_net)
+        if not available_cidrs:
+            continue
+        for cidr in available_cidrs.iter_cidrs():
+            first, last = cidr.first, cidr.last
+            if client_addr:
+                address = IPAddress(client_addr) + 1
+            else:
+                address = IPAddress(random.randrange(first + 1, last))
+            for _ in range(first + 1, last):
                 if address not in cidr or address == cidr.broadcast:
                     address = cidr.network + 1
-                Tunnel.objects.get(Q(client=str(address)) |
-                                   Q(server=str(address)))
-                address += 1
-            except Tunnel.DoesNotExist:
-                return str(address), exc_nets
+                try:
+                    Tunnel.objects.get(Q(client=str(address)) |
+                                       Q(server=str(address)))
+                    address += 1
+                except Tunnel.DoesNotExist:
+                    return str(address)
 
 
 def check_ip(addr):
     """Verify that the server/client IP is valid"""
-    addr = netaddr.IPAddress(addr)
+    addr = IPAddress(addr)
     if addr.version != 4 or not addr.is_private():
         raise ValidationError("Only private IPv4 networks are supported.")
 

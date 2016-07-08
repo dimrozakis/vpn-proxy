@@ -25,12 +25,12 @@ SECRET_KEY = 'j85314t$+^le-kx$x&$&tb3*$_3q^lmz7y)vcq8e=@7jhi2tv8'
 DEBUG = True
 
 # IP addressing settings
-ALLOWED_HOSTS = ['192.168.0.0/16', '172.16.0.0/12', '10.0.0.0/8']
+ALLOWED_HOSTS = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
 EXCLUDED_HOSTS = []
 VPN_SERVER_REMOTE_ADDRESS = '192.168.69.100'
 SERVER_PORT_START = 1195
 # SERVER_PORT_END = ''
-IFACE_PREFIX = 'vpn-proxy-tun'
+IFACE_PREFIX = 'vpn-tun'
 
 # Application definition
 

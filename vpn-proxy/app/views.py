@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 
 from .models import Tunnel, Forwarding
-from .models import choose_server_ip, choose_client_ip, pick_port
+from .models import choose_ip, pick_port
 
 import subprocess
 import pingparser
@@ -23,9 +23,9 @@ def tunnels(request):
         params = {}
         cidrs = request.POST.getlist('cidrs')
         excluded_cidrs = request.POST.getlist('excluded', [])
-        client, exc_nets = choose_client_ip(cidrs, excluded_cidrs)
+        client = choose_ip(cidrs, excluded_cidrs)
         params['client'] = client
-        params['server'] = choose_server_ip(client, exc_nets)
+        params['server'] = choose_ip(cidrs, excluded_cidrs, client_addr=client)
         tun = Tunnel(**params)
         tun.save()
         return JsonResponse(tun.to_dict())
