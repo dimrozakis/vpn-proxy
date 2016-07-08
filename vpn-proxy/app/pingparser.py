@@ -2,6 +2,8 @@
 # coding: utf-8
 """
 Parses the output of the system ping command.
+
+Code originally taken from https://github.com/gg/pingparser
 """
 __version__ = '0.3'
 
