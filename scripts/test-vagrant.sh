@@ -90,8 +90,8 @@ test_selfprobe() {
     header "Test that each server can probe itself on all interfaces"
     subheader "server"
     columns
-    local ip1=$(get_ip server mist-io-tun1)
-    local ip2=$(get_ip server mist-io-tun2)
+    local ip1=$(get_ip server vpn-tun1)
+    local ip2=$(get_ip server vpn-tun2)
     assert_probe server 127.0.0.1 server
     assert_probe server 192.168.75.100 server
     assert_probe server 192.168.69.100 server
@@ -100,20 +100,20 @@ test_selfprobe() {
     echo
     subheader "proxy1"
     columns
-    local ip=$(get_ip proxy1 mist-io-tun1)
+    local ip=$(get_ip proxy1 vpn-tun1)
     assert_probe proxy1 127.0.0.1 proxy1
     assert_probe proxy1 192.168.75.101 proxy1
     assert_probe proxy1 10.75.75.10 proxy1
-    assert_probe proxy1 10.75.77.10 proxy1
+    assert_probe proxy1 10.75.76.10 proxy1
     assert_probe proxy1 $ip proxy1
     echo
     subheader "proxy2"
     columns
-    local ip=$(get_ip proxy2 mist-io-tun2)
+    local ip=$(get_ip proxy2 vpn-tun2)
     assert_probe proxy2 127.0.0.1 proxy2
     assert_probe proxy2 192.168.75.102 proxy2
-    assert_probe proxy2 10.75.76.10 proxy2
-    assert_probe proxy2 10.75.78.10 proxy2
+    assert_probe proxy2 10.75.75.10 proxy2
+    assert_probe proxy2 10.75.77.10 proxy2
     assert_probe proxy2 $ip proxy2
     echo
     subheader "target1"
@@ -124,17 +124,17 @@ test_selfprobe() {
     subheader "target2"
     columns
     assert_probe target2 127.0.0.1 target2
-    assert_probe target2 10.75.76.75 target2
+    assert_probe target2 10.75.75.75 target2
     echo
     subheader "target3"
     columns
     assert_probe target3 127.0.0.1 target3
-    assert_probe target3 10.75.77.75 target3
+    assert_probe target3 10.75.76.75 target3
     echo
     subheader "target4"
     columns
     assert_probe target4 127.0.0.1 target4
-    assert_probe target4 10.75.78.75 target4
+    assert_probe target4 10.75.77.75 target4
 }
 
 test_proxy_targets() {
@@ -146,18 +146,18 @@ test_proxy_targets() {
     echo
     subheader "proxy1 <-> target3"
     columns
-    assert_probe proxy1 10.75.77.75 target3
-    assert_probe target3 10.75.77.10 proxy1
+    assert_probe proxy1 10.75.76.75 target3
+    assert_probe target3 10.75.76.10 proxy1
     echo
     subheader "proxy2 <-> target2"
     columns
-    assert_probe proxy2 10.75.76.75 target2
-    assert_probe target2 10.75.76.10 proxy2
+    assert_probe proxy2 10.75.75.75 target2
+    assert_probe target2 10.75.75.10 proxy2
     echo
     subheader "proxy2 <-> target4"
     columns
-    assert_probe proxy2 10.75.78.75 target4
-    assert_probe target4 10.75.78.10 proxy2
+    assert_probe proxy2 10.75.77.75 target4
+    assert_probe target4 10.75.77.10 proxy2
 }
 
 test_server_proxies() {
@@ -183,10 +183,10 @@ test_peer_server() {
 test_server_targets() {
     header "Test that the server can probe the targets through the proxies"
     columns
-    assert_probe server 10.75.75.75 target1 mist-io-tun1
-    assert_probe server 10.75.76.75 target2 mist-io-tun2
-    assert_probe server 10.75.77.75 target3 mist-io-tun1
-    assert_probe server 10.75.78.75 target4 mist-io-tun2
+    assert_probe server 10.75.75.75 target1 vpn-tun1
+    assert_probe server 10.75.75.75 target2 vpn-tun2
+    assert_probe server 10.75.76.75 target3 vpn-tun1
+    assert_probe server 10.75.77.75 target4 vpn-tun2
 }
 
 test_peer_targets() {
@@ -201,7 +201,7 @@ test_peer_targets() {
 test_targets_server() {
     header "Test that the targets can probe the server through the proxies"
     for i in {1..2}; do
-        local ip=$(get_ip server mist-io-tun$i)
+        local ip=$(get_ip server vpn-tun$i)
         local rule="PREROUTING -t nat -p tcp --destination-port 81 -j DNAT --to-destination $ip:80"
         local cmd="sudo iptables -C $rule || sudo iptables -A $rule"
         echo "Forward all traffic coming to proxy$i:81 to server:80:"
@@ -211,9 +211,9 @@ test_targets_server() {
     echo
     columns
     assert_probe target1 10.75.75.10:81 server
-    assert_probe target3 10.75.77.10:81 server
-    assert_probe target2 10.75.76.10:81 server
-    assert_probe target4 10.75.78.10:81 server
+    assert_probe target3 10.75.76.10:81 server
+    assert_probe target2 10.75.75.10:81 server
+    assert_probe target4 10.75.77.10:81 server
 }
 
 test() {

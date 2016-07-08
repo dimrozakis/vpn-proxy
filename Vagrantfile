@@ -9,12 +9,12 @@ TOPOLOGY = <<EOF
                                                       --------
                                       192.168.69.69  |        |
                                      ________________|  PEER  |
-                                    |                |        |                                    
+                                    |                |        |                                 
                                     |                 --------
                                     |
-                             192.168.69.100      
+                             192.168.69.100
                                 --------
-                vpn-proxy-tun1 |        | vpn-proxy-tun2
+                      vpn-tun1 |        | vpn-tun2
                           #####| SERVER |#####
  OpenVPN point to point  #     |        |     #  OpenVPN point to point
         tunnel over WAN  #      --------      #  tunnel over WAN
@@ -26,26 +26,26 @@ TOPOLOGY = <<EOF
                #  |               (WAN)               |  #
                #  |                                   |  #
                #  |                                   |  #
-vpn-proxy-tun1 #  | 192.168.75.101     192.168.75.102 |  # vpn-proxy-tun2
+      vpn-tun1 #  | 192.168.75.101     192.168.75.102 |  # vpn-tun2
              --------                               --------
-            |        | 10.75.75.10     10.75.76.10 |        |
+            |        | 10.75.75.10     10.75.75.10 |        |
             | PROXY1 |____                     ____| PROXY2 |
             |        |    |                   |    |        |
              --------     |  Private networks |     --------
-            10.75.77.10   |  without conflict |    10.75.78.10
-                 |        |     /24 CIDRs     |         |
+            10.75.76.10   |    with conflict  |    10.75.77.10
+                 |        |                   |         |
                  |        |                   |         |
                  |        |  LAN1       LAN2  |         |
            LAN3  |        |                   |         |  LAN4
                  |        |                   |         |
-                 |   10.75.75.75         10.75.76.75    |
+                 |   10.75.75.75         10.75.75.75    |
                  |    ---------          ---------      |
                  |   |         |        |         |     |
                  |   | TARGET1 |        | TARGET2 |     |
                  |   |         |        |         |     |
                  |    ---------          ---------      |
                  |                                      |
-            10.75.77.75                            10.75.78.75
+            10.75.76.75                            10.75.77.75
              ---------                              ---------
             |         |                            |         |
             | TARGET3 |                            | TARGET4 |
@@ -72,11 +72,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       inline: "nohup /vagrant/vpn-proxy/manage.py " \
               "runserver 192.168.69.100:8080 " \
               "> /var/log/django.log 2>&1 < /dev/null & sleep 5"
+
     # Set up openvpn server
     (1..2).each do |i|
       server.vm.provision "shell",
         inline: "echo \"Attempting to create tunnel #{i}\" && " \
-                "curl -s -X POST -d cidrs[]=10.75.#{74+i}.0/24 " \
+                "curl -s -X POST -d cidrs='10.75.75.0/24' " \
                 "192.168.69.100:8080/ > /dev/null 2>&1 || echo \"Error..?\""
       server.vm.provision "shell",
         run: "always",
@@ -96,7 +97,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     (1..2).each do |i|
       peer.vm.provision "shell",
         run: "always",
-        inline: "curl -s 192.168.69.100:8080/#{i}/forwardings/10.75.#{74+i}.75/80/" \
+        inline: "curl -s 192.168.69.100:8080/#{i}/forwardings/10.75.75.75/80/" \
                 " > /vagrant/tmp/target#{i}_port.txt"
     end
   end
@@ -111,10 +112,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         ip: "192.168.75.#{i+100}"
       proxy.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{i}",
-        ip: "10.75.#{74+i}.10"
+        ip: "10.75.75.10"
       proxy.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{2+i}",
-        ip: "10.75.#{76+i}.10"
+        ip: "10.75.#{75+i}.10"
       proxy.vm.provision "shell",
         run: "always",
         inline: "bash /vagrant/tmp/proxy#{i}.sh"
@@ -128,7 +129,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       target.vm.hostname = "target#{i}"
       target.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{i}",
-        ip: "10.75.#{74+i}.75"
+        ip: "10.75.75.75"
     end
   end
 
@@ -139,7 +140,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       target.vm.hostname = "target#{2+i}"
       target.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{2+i}",
-        ip: "10.75.#{76+i}.75"
+        ip: "10.75.#{75+i}.75"
     end
   end
 

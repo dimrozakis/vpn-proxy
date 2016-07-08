@@ -37,4 +37,4 @@ echo 'from project.createsuperuser import main; main()' | \
 
 mkdir -p $DIR/tmp
 
-echo 1 | sudo tee -a /proc/sys/net/ipv4/ip_forward 2>&1 > /dev/null
+echo 1 > /proc/sys/net/ipv4/ip_forward
