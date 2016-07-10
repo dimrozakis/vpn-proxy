@@ -264,24 +264,43 @@ def get_client_script(tunnel):
     return """#!/bin/bash
 
 discover_cmd() {
-    echo "Searching for apt-get, yum, or zypper.."
+    echo 'Searching for apt-get, yum, or zypper..'
     if which apt-get > /dev/null; then
-        cmd='apt-get'
+        pkg_manager='apt-get'
     elif which yum > /dev/null; then
-        cmd='yum'
+        pkg_manager='yum'
     elif which zypper > /dev/null; then
-        cmd='zypper'
+        pkg_manager='zypper'
     else
         echo "Could not find a package management tool"
         exit 1
     fi
 }
 
-if ! which openvpn > /dev/null; then
+install_pkg() {
     discover_cmd
-    if ! $cmd install -y openvpn; then
-        $cmd update && $cmd install -y openvpn
+    if [ '$pkg_manager' == 'zypper' ]; then
+        cmd='$pkg_manager install $1'
+    else
+        cmd='$pkg_manager install -y $1'
     fi
+
+    if ! eval $cmd; then
+        update_repo
+        eval $cmd
+    fi
+}
+
+update_repo() {
+    if [ '$pkg_manager' == 'zypper' ]; then
+        $pkg_manager refresh
+    else
+        $pkg_manager update
+    fi
+}
+
+if ! which openvpn > /dev/null; then
+    install_pkg openvpn
 fi
 
 cat > %(key_path)s << EOF
