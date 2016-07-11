@@ -57,6 +57,11 @@ assert_probe() {
     echo "OK"
 }
 
+get_ip() {
+    local cmd="/sbin/ifconfig | grep '^$2' -A 1 | grep 'inet addr' | cut -d: -f2 | sed 's/  P-t-P$//'"
+    vagrant ssh $1 -c "$cmd | tr -d '\r\n'" 2> /dev/null
+}
+
 columns() {
     printf "%-24s| %-12s| %-18s| %-12s| %s\n" \
         "When we probe" "from" "via" "we see" "check"
@@ -85,32 +90,31 @@ test_selfprobe() {
     header "Test that each server can probe itself on all interfaces"
     subheader "server"
     columns
+    local ip1=$(get_ip server vpn-tun1)
+    local ip2=$(get_ip server vpn-tun2)
     assert_probe server 127.0.0.1 server
     assert_probe server 192.168.75.100 server
     assert_probe server 192.168.69.100 server
-    assert_probe server 172.17.17.2 server
-    assert_probe server 172.17.17.4 server
-    echo
-    subheader "peer"
-    columns
-    assert_probe peer 127.0.0.1 peer
-    assert_probe peer 192.168.69.69 peer
+    assert_probe server $ip1 server
+    assert_probe server $ip2 server
     echo
     subheader "proxy1"
     columns
+    local ip=$(get_ip proxy1 vpn-tun1)
     assert_probe proxy1 127.0.0.1 proxy1
     assert_probe proxy1 192.168.75.101 proxy1
     assert_probe proxy1 10.75.75.10 proxy1
     assert_probe proxy1 10.75.76.10 proxy1
-    assert_probe proxy1 172.17.17.3 proxy1
+    assert_probe proxy1 $ip proxy1
     echo
     subheader "proxy2"
     columns
+    local ip=$(get_ip proxy2 vpn-tun2)
     assert_probe proxy2 127.0.0.1 proxy2
     assert_probe proxy2 192.168.75.102 proxy2
     assert_probe proxy2 10.75.75.10 proxy2
     assert_probe proxy2 10.75.77.10 proxy2
-    assert_probe proxy2 172.17.17.5 proxy2
+    assert_probe proxy2 $ip proxy2
     echo
     subheader "target1"
     columns
@@ -179,10 +183,10 @@ test_peer_server() {
 test_server_targets() {
     header "Test that the server can probe the targets through the proxies"
     columns
-    assert_probe server 10.75.75.75 target1 vpn-proxy-tun1
-    assert_probe server 10.75.75.75 target2 vpn-proxy-tun2
-    assert_probe server 10.75.76.75 target3 vpn-proxy-tun1
-    assert_probe server 10.75.77.75 target4 vpn-proxy-tun2
+    assert_probe server 10.75.75.75 target1 vpn-tun1
+    assert_probe server 10.75.75.75 target2 vpn-tun2
+    assert_probe server 10.75.76.75 target3 vpn-tun1
+    assert_probe server 10.75.77.75 target4 vpn-tun2
 }
 
 test_peer_targets() {
@@ -197,8 +201,8 @@ test_peer_targets() {
 test_targets_server() {
     header "Test that the targets can probe the server through the proxies"
     for i in {1..2}; do
-        local ip="172.17.17.$((2*$i))"
-        local rule="PREROUTING -t nat -p tcp --dport 81 -j DNAT --to $ip:80"
+        local ip=$(get_ip server vpn-tun$i)
+        local rule="PREROUTING -t nat -p tcp --destination-port 81 -j DNAT --to-destination $ip:80"
         local cmd="sudo iptables -C $rule || sudo iptables -A $rule"
         echo "Forward all traffic coming to proxy$i:81 to server:80:"
         echo "  iptables -A $rule"

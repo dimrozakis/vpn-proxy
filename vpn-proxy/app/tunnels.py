@@ -1,3 +1,5 @@
+from django.conf import settings
+
 import os
 import re
 import logging
@@ -5,10 +7,7 @@ import tempfile
 import subprocess
 
 
-REMOTE_IP = '192.168.75.100'
-IFACE_PREFIX = 'vpn-proxy-tun'
-SERVER_PORT_START = 1195
-VPN_ADDRESSES = '172.17.17.0/24'
+REMOTE_IP = settings.VPN_SERVER_REMOTE_ADDRESS
 
 log = logging.getLogger(__name__)
 
@@ -264,14 +263,23 @@ def get_client_conf(tunnel):
 def get_client_script(tunnel):
     return """#!/bin/bash
 
-if ! which openvpn > /dev/null; then
-    if ! which apt-get > /dev/null; then
-        echo "Couldn't find apt-get to install OpenVPN."
+install_pkg() {
+    echo "Searching for apt-get, yum, or zypper.."
+    if which apt-get > /dev/null; then
+        apt-get update && apt-get install -y $1
+    elif which yum > /dev/null; then
+        yum update && yum install -y $1
+    elif which zypper > /dev/null; then
+        zypper refresh && zypper install $1
+    else
+        echo "Could not find a package management tool"
         exit 1
     fi
-    if ! apt-get install -y openvpn; then
-        apt-get update && apt-get install -y openvpn
-    fi
+
+}
+
+if ! which openvpn > /dev/null; then
+    install_pkg openvpn
 fi
 
 cat > %(key_path)s << EOF

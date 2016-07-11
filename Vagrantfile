@@ -6,16 +6,15 @@ VAGRANTFILE_API_VERSION = "2"
 TOPOLOGY = <<EOF
                             NETWORK TOPOLOGY
                             ================
-
-              ------                                  ------
-             |      | 192.168.69.1     192.168.69.69 |      |
-             | HOST |________________________________| PEER |
-             |      |               |                |      |
-              ------                |                 ------
+                                                      --------
+                                      192.168.69.69  |        |
+                                     ________________|  PEER  |
+                                    |                |        |                                 
+                                    |                 --------
                                     |
                              192.168.69.100
                                 --------
-   vpn-proxy-tun1: 172.17.17.2 |        | vpn-proxy-tun2: 172.17.17.4
+                      vpn-tun1 |        | vpn-tun2
                           #####| SERVER |#####
  OpenVPN point to point  #     |        |     #  OpenVPN point to point
         tunnel over WAN  #      --------      #  tunnel over WAN
@@ -27,13 +26,14 @@ TOPOLOGY = <<EOF
                #  |               (WAN)               |  #
                #  |                                   |  #
                #  |                                   |  #
-   172.17.17.3 #  | 192.168.75.101     192.168.75.102 |  # 172.17.17.5
+      vpn-tun1 #  | 192.168.75.101     192.168.75.102 |  # vpn-tun2
              --------                               --------
             |        | 10.75.75.10     10.75.75.10 |        |
             | PROXY1 |____                     ____| PROXY2 |
             |        |    |                   |    |        |
              --------     |  Private networks |     --------
             10.75.76.10   |    with conflict  |    10.75.77.10
+                 |        |                   |         |
                  |        |                   |         |
                  |        |  LAN1       LAN2  |         |
            LAN3  |        |                   |         |  LAN4
@@ -65,20 +65,20 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     server.vm.network "private_network",
       virtualbox__intnet: "vpnproxy-wan",
       ip: "192.168.75.100"
-    server.vm.post_up_message = TOPOLOGY
     server.vm.provision "shell",
       inline: "/vagrant/scripts/install.sh"
     server.vm.provision "shell",
       run: "always",
       inline: "nohup /vagrant/vpn-proxy/manage.py " \
               "runserver 192.168.69.100:8080 " \
-              "> /var/log/django.log 2>&1 </dev/null & sleep 5"
+              "> /var/log/django.log 2>&1 < /dev/null & sleep 5"
+
     # Set up openvpn server
     (1..2).each do |i|
       server.vm.provision "shell",
-        inline: "echo \"Attempting to create tunnel 1\" && " \
-                "curl -s -X POST -d server=172.17.17.#{2*i} " \
-                "192.168.69.100:8080/  > /dev/null 2>&1 || echo \"Error..?\""
+        inline: "echo \"Attempting to create tunnel #{i}\" && " \
+                "curl -s -X POST -d cidrs='10.75.75.0/24' " \
+                "192.168.69.100:8080/ > /dev/null 2>&1 || echo \"Error..?\""
       server.vm.provision "shell",
         run: "always",
         inline: "curl -s -X POST 192.168.69.100:8080/#{i}/"
@@ -87,6 +87,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
+    server.vm.post_up_message = TOPOLOGY
   end
 
   # Create a `peer` vm, connected to the server using a host only network.

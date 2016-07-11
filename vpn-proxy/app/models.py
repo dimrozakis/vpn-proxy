@@ -3,61 +3,80 @@ from __future__ import unicode_literals
 import random
 import logging
 
-import netaddr
+from netaddr import IPAddress, IPNetwork, IPSet
 
 from django.db import models
+from django.db.models import Q
 from django.core.exceptions import ValidationError
+from django.conf import settings
 
 from .tunnels import start_tunnel, stop_tunnel, gen_key
 from .tunnels import get_conf, get_client_conf, get_client_script
 from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
 
-IFACE_PREFIX = 'vpn-proxy-tun'
-SERVER_PORT_START = 1195
-VPN_ADDRESSES = '172.17.17.0/24'
+IFACE_PREFIX = settings.IFACE_PREFIX
+SERVER_PORT_START = settings.SERVER_PORT_START
+ALLOWED_VPN_ADDRESSES = settings.ALLOWED_HOSTS
+EXCLUDED_VPN_ADDRESSES = settings.EXCLUDED_HOSTS
 
 log = logging.getLogger(__name__)
 
 
-def chose_server_ip(network=VPN_ADDRESSES):
-    """Find an available server IP in the given network (CIDR notation)"""
-    network = netaddr.IPNetwork(network)
-    if network.version != 4 or not network.is_private():
-        raise Exception("Only private IPv4 networks are supported.")
-    first, last = network.first, network.last
-    if first % 2:
-        first += 1
-    for i in range(20):
-        addr = str(netaddr.IPAddress(random.randrange(first, last, 2)))
-        print addr
-        try:
-            Tunnel.objects.get(server=addr)
-        except Tunnel.DoesNotExist:
-            return addr
+def choose_ip(routable_cidrs, excluded_cidrs=[],
+              reserved_cidrs=EXCLUDED_VPN_ADDRESSES, client_addr=''):
+    """
+    Find available IP addresses for both sides of a VPN Tunnel (client &
+    server) based on a list of available_cidrs. This method iterates over the
+    CIDRs contained in ALLOWED_VPN_ADDRESSES, while excluding the lists of
+    routable_cidrs, excluded_cidrs, and reserved_cidrs.
+    :param routable_cidrs: the CIDRs that are to be routed over the
+    particular VPN Tunnel
+    :param excluded_cidrs: an optional CIDRs list provided by the end user
+    in order to be excluded from the address allocation process
+    :param reserved_cidrs: CIDRs reserved for local usage
+    :param client_addr: since the client IP is allocated first, the client_addr
+    is used to attempt to pick an adjacent IP address for the server side.
+    Alternatively, this is an empty string
+    :return: a private IP address
+    """
+    exc_nets = routable_cidrs + excluded_cidrs + reserved_cidrs
+    # a list of unique, non-overlapping supernets (to be excluded)
+    exc_nets = IPSet(exc_nets).iter_cidrs()
+    for network in ALLOWED_VPN_ADDRESSES:
+        available_cidrs = IPSet(IPNetwork(network))
+        for exc_net in exc_nets:
+            available_cidrs.remove(exc_net)
+        if not available_cidrs:
+            continue
+        for cidr in available_cidrs.iter_cidrs():
+            first, last = cidr.first, cidr.last
+            if client_addr:
+                address = IPAddress(client_addr) + 1
+            else:
+                address = IPAddress(random.randrange(first + 1, last))
+            for _ in range(first + 1, last):
+                if address not in cidr or address == cidr.broadcast:
+                    address = cidr.network + 1
+                try:
+                    Tunnel.objects.get(Q(client=str(address)) |
+                                       Q(server=str(address)))
+                    address += 1
+                except Tunnel.DoesNotExist:
+                    return str(address)
 
 
-def check_server_ip(addr):
-    """Verify that the server IP is valid"""
-    addr = netaddr.IPAddress(addr)
-    if addr.version != 4 or not addr.is_private():
-        raise ValidationError("Only private IPv4 networks are supported.")
-    if not 0 < addr.words[-1] < 254 or addr.words[-1] % 2:
-        raise ValidationError("Server IP's last octet must be even in the "
-                              "range [2,254].")
-
-
-def check_destination_ip(addr):
-    """Verify that remote IP belongs to a private host"""
-    addr = netaddr.IPAddress(addr)
+def check_ip(addr):
+    """Verify that the server/client IP is valid"""
+    addr = IPAddress(addr)
     if addr.version != 4 or not addr.is_private():
         raise ValidationError("Only private IPv4 networks are supported.")
 
 
 def pick_port(_port):
-    """Find next available port based on Ports.
+    """Find next available port based on Forwarding.
     This function is used directly by views.py"""
-    for _ in range(100):
+    for _ in range(60000):
         try:
             Forwarding.objects.get(loc_port=_port)
             _port += 1
@@ -68,7 +87,7 @@ def pick_port(_port):
 class BaseModel(models.Model):
     """Abstract base model to be used by Tunnel and Forwarding"""
 
-    active = models.BooleanField(default=True)
+    active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -117,21 +136,15 @@ class BaseModel(models.Model):
 
 class Tunnel(BaseModel):
     server = models.GenericIPAddressField(protocol='IPv4',
-                                          default=chose_server_ip,
-                                          validators=[check_server_ip],
+                                          validators=[check_ip],
                                           unique=True)
+    client = models.GenericIPAddressField(protocol='IPv4',
+                                          validators=[check_ip])
     key = models.TextField(default=gen_key, blank=False, unique=True)
 
     @property
     def name(self):
         return '%s%s' % (IFACE_PREFIX, self.id)
-
-    @property
-    def client(self):
-        if self.server:
-            octets = self.server.split('.')
-            octets.append(str(int(octets.pop()) + 1))
-            return '.'.join(octets)
 
     @property
     def port(self):
@@ -172,7 +185,6 @@ class Tunnel(BaseModel):
         stop_tunnel(self)
 
     def __str__(self):
-        return self.name
         return '%s %s -> %s (port %s)' % (self.name, self.server,
                                           self.client, self.port)
 
@@ -189,15 +201,14 @@ class Tunnel(BaseModel):
 
     def delete(self, *args, **kwargs):
         """Disable and delete all forwardings before deleting tunnel"""
-        for forwarding in self.forwarding_set:
+        for forwarding in Forwarding.objects.filter(tunnel=self):
             forwarding.delete()
         super(Tunnel, self).delete(*args, **kwargs)
 
 
 class Forwarding(BaseModel):
     tunnel = models.ForeignKey(Tunnel, on_delete=models.CASCADE)
-    dst_addr = models.GenericIPAddressField(protocol='IPv4',
-                                            validators=[check_destination_ip])
+    dst_addr = models.GenericIPAddressField(protocol='IPv4')
     dst_port = models.IntegerField()
     loc_port = models.IntegerField(unique=True)
     src_addr = models.GenericIPAddressField(protocol='IPv4')
