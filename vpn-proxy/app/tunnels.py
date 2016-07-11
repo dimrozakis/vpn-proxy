@@ -263,40 +263,19 @@ def get_client_conf(tunnel):
 def get_client_script(tunnel):
     return """#!/bin/bash
 
-discover_cmd() {
-    echo 'Searching for apt-get, yum, or zypper..'
+install_pkg() {
+    echo "Searching for apt-get, yum, or zypper.."
     if which apt-get > /dev/null; then
-        pkg_manager='apt-get'
+        apt-get update && apt-get install -y $1
     elif which yum > /dev/null; then
-        pkg_manager='yum'
+        yum update && yum install -y $1
     elif which zypper > /dev/null; then
-        pkg_manager='zypper'
+        zypper refresh && zypper install $1
     else
         echo "Could not find a package management tool"
         exit 1
     fi
-}
 
-install_pkg() {
-    discover_cmd
-    if [ '$pkg_manager' == 'zypper' ]; then
-        cmd='$pkg_manager install $1'
-    else
-        cmd='$pkg_manager install -y $1'
-    fi
-
-    if ! eval $cmd; then
-        update_repo
-        eval $cmd
-    fi
-}
-
-update_repo() {
-    if [ '$pkg_manager' == 'zypper' ]; then
-        $pkg_manager refresh
-    else
-        $pkg_manager update
-    fi
 }
 
 if ! which openvpn > /dev/null; then
