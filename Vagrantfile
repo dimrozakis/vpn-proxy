@@ -9,7 +9,7 @@ TOPOLOGY = <<EOF
                                                       --------
                                       192.168.69.69  |        |
                                      ________________|  PEER  |
-                                    |                |        |                                 
+                                    |                |        |
                                     |                 --------
                                     |
                              192.168.69.100
@@ -77,14 +77,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     (1..2).each do |i|
       server.vm.provision "shell",
         inline: "echo \"Attempting to create tunnel #{i}\" && " \
-                "curl -s -X POST -d cidrs='10.75.75.0/24' " \
-                "192.168.69.100:8080/ > /dev/null 2>&1 || echo \"Error..?\""
+                "curl -fsS -X POST -d cidrs='10.75.75.0/24' " \
+                "192.168.69.100:8080/ || echo \"Error..?\""
       server.vm.provision "shell",
         run: "always",
-        inline: "curl -s -X POST 192.168.69.100:8080/#{i}/"
+        inline: "curl -fsS -X POST 192.168.69.100:8080/#{i}/"
       server.vm.provision "shell",
         run: "always",
-        inline: "curl -s 192.168.69.100:8080/#{i}/client_script/ " \
+        inline: "curl -fsS 192.168.69.100:8080/#{i}/client_script/ " \
                 "> /vagrant/tmp/proxy#{i}.sh"
     end
     server.vm.post_up_message = TOPOLOGY
@@ -97,7 +97,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     (1..2).each do |i|
       peer.vm.provision "shell",
         run: "always",
-        inline: "curl -s 192.168.69.100:8080/#{i}/forwardings/10.75.75.75/80/" \
+        inline: "curl -fsS 192.168.69.100:8080/#{i}/forwardings/10.75.75.75/80/" \
                 " > /vagrant/tmp/target#{i}_port.txt"
     end
   end
