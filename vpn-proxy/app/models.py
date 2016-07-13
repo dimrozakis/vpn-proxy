@@ -87,7 +87,7 @@ def pick_port(_port):
 class BaseModel(models.Model):
     """Abstract base model to be used by Tunnel and Forwarding"""
 
-    active = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
