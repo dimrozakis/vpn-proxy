@@ -330,7 +330,7 @@ def check_iptables(forwarding, job='-C', rule=''):
         exitcodes = {}
         for name, cmd in rules.iteritems():
             try:
-                run(cmd)
+                run(cmd, verbosity=0)
                 exitcodes[name] = 0
             except subprocess.CalledProcessError as err:
                 exitcodes[name] = err.returncode
