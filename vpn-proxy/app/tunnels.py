@@ -12,34 +12,13 @@ REMOTE_IP = settings.VPN_SERVER_REMOTE_ADDRESS
 log = logging.getLogger(__name__)
 
 
-def run(cmd, shell=False, verbosity=1, shell_close_fds=False):
-    """Run given command and return output
-
-    shell_close_fds will start a shell, close all file descriptors except
-    stdin, stdout, stderr and then run the specified command. This is needed
-    because by default, a subprocess will inherit all open file descriptors of
-    each parent. When we start OpenVPN, it inherits the open TCP port, and when
-    we stop and then restart the web server, OpenVPN still holds an open file
-    descriptor and the web server cannot bind to the port.
-    """
+def run(cmd, shell=False, verbosity=1):
+    """Run given command and return output"""
     _cmd = ' '.join(cmd) if not isinstance(cmd, basestring) else cmd
     if verbosity > 1:
         log.info("Running command '%s'.", _cmd)
     elif verbosity > 0:
         log.debug("Running command '%s'.", _cmd)
-    if shell_close_fds:
-        shell = True
-        cmd = """
-for fd in $(ls /proc/$$/fd); do
-  case "$fd" in
-    0|1|2|255)
-      ;;
-    *)
-      eval "exec $fd>&-"
-      ;;
-  esac
-done
-""" + _cmd
     try:
         output = subprocess.check_output(cmd, shell=shell,
                                          stderr=subprocess.STDOUT)
@@ -103,27 +82,25 @@ def start_openvpn(iface, force=True):
     Use `force` to restart anyways
     """
     try:
-        run(['service', 'openvpn', 'status', iface])
+        run(['systemctl', 'status', 'openvpn@%s' % iface])
         if force:
             log.info("Restarting OpenVPN server for %s.", iface)
-            run(['service', 'openvpn', 'restart', iface],
-                shell_close_fds=True)
+            run(['systemctl', 'restart', 'openvpn@%s' % iface])
         else:
             log.debug("OpenVPN server for %s already running.", iface)
             return False
     except subprocess.CalledProcessError:
         log.info("OpenVPN server for %s not running, starting.", iface)
-        run(['service', 'openvpn', 'start', iface],
-            shell_close_fds=True)
+        run(['systemctl', 'start', 'openvpn@%s' % iface])
     return True
 
 
 def stop_openvpn(iface):
     """Stop OpenVPN for given iface if running, return True if changed"""
     try:
-        run(['service', 'openvpn', 'status', iface])
+        run(['systemctl', 'status', 'openvpn@%s' % iface])
         log.info("OpenVPN server for %s is running, stopping.", iface)
-        run(['service', 'openvpn', 'stop', iface])
+        run(['systemctl', 'stop', 'openvpn@%s' % iface])
     except subprocess.CalledProcessError:
         log.debug("OpenVPN server for %s already stopped.", iface)
         return False
@@ -263,6 +240,8 @@ def get_client_conf(tunnel):
 def get_client_script(tunnel):
     return """#!/bin/bash
 
+set -ex
+
 install_pkg() {
     echo "Searching for apt-get, yum, or zypper.."
     if which apt-get > /dev/null; then
@@ -290,7 +269,11 @@ cat > %(conf_path)s << EOF
 %(conf)s
 EOF
 
-service openvpn start %(name)s
+if which systemctl > /dev/null; then
+    systemctl restart openvpn@%(name)s
+else
+    service openvpn restart %(name)s
+fi
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
@@ -330,7 +313,7 @@ def check_iptables(forwarding, job='-C', rule=''):
         exitcodes = {}
         for name, cmd in rules.iteritems():
             try:
-                run(cmd)
+                run(cmd, verbosity=0)
                 exitcodes[name] = 0
             except subprocess.CalledProcessError as err:
                 exitcodes[name] = err.returncode

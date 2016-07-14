@@ -1,40 +1,50 @@
 #!/bin/bash
 
-set -e
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
-install() {
-    if [ -z "$1" ]; then
-        return 1
-    fi
-    local pkg=$1
-    if [ -z "$2" ]; then
-        local cmd=$1
-    else
-        local cmd=$2
-    fi
-    if ! command -v $cmd > /dev/null; then
-        echo "Installing $pkg ..."
-        if ! apt-get install -y $pkg; then
-            apt-get update && apt-get install -y $pkg
-        fi
-    else
-        echo "$pkg already installed."
-    fi
-}
+if [ -z "$SOCKET" ]; then
+    echo "Please enter IP or IP:PORT (private) for the webserver:"
+    read SOCKET
+    echo
+fi
 
-install openvpn
-install python
-install python-pip pip
+echo "Installing vpn-proxy from $DIR, will listen to $SOCKET"
+echo
 
+set -ex
+
+apt-get update -q
+apt-get install -yq --no-install-recommends \
+    python python-pip openvpn uwsgi uwsgi-plugin-python
+
+pip install -U pip
 pip install -U django netaddr ipython
 
 $DIR/vpn-proxy/manage.py migrate
-
-echo 'from project.createsuperuser import main; main()' | \
-    $DIR/vpn-proxy/manage.py shell --plain
+$DIR/vpn-proxy/manage.py autosuperuser
 
 mkdir -p $DIR/tmp
+
+cat > /etc/uwsgi/apps-available/vpn-proxy.ini << EOF
+[uwsgi]
+
+chdir = $DIR/vpn-proxy
+module = project.wsgi
+
+http = $SOCKET
+processes = 4
+
+master = true
+vacuum = true
+close-on-exec = true
+close-on-exec2 = true
+
+uid = root
+gid = root
+EOF
+cat /etc/uwsgi/apps-available/vpn-proxy.ini
+ln -sf /etc/uwsgi/apps-available/vpn-proxy.ini /etc/uwsgi/apps-enabled/
+systemctl restart uwsgi
+systemctl status uwsgi
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
