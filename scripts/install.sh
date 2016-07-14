@@ -36,8 +36,6 @@ processes = 4
 
 master = true
 vacuum = true
-close-on-exec = true
-close-on-exec2 = true
 
 uid = root
 gid = root
