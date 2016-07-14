@@ -66,12 +66,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       virtualbox__intnet: "vpnproxy-wan",
       ip: "192.168.75.100"
     server.vm.provision "shell",
-      inline: "/vagrant/scripts/install.sh"
+      inline: "SOCKET=192.168.69.100:8080 /vagrant/scripts/install.sh"
     server.vm.provision "shell",
       run: "always",
-      inline: "nohup /vagrant/vpn-proxy/manage.py " \
-              "runserver 192.168.69.100:8080 " \
-              "> /var/log/django.log 2>&1 < /dev/null & sleep 5"
+      inline: "service uwsgi start vpn-proxy"
 
     # Set up openvpn server
     (1..2).each do |i|
