@@ -64,7 +64,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Create a `server` vm, connected to 2 proxies.
   config.vm.define "server", primary: true do |server|
     server.vm.hostname = "server"
-    server.vm.network "private_network", ip: "192.168.69.100"
+    server.vm.network "private_network",
+      virtualbox__intnet: "vpnproxy-lan0",
+      ip: "192.168.69.100"
     server.vm.network "private_network",
       virtualbox__intnet: "vpnproxy-wan",
       ip: "192.168.75.100"
@@ -80,7 +82,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Create a `peer` vm, connected to the server using a host only network.
   config.vm.define "peer" do |peer|
     peer.vm.hostname = "peer"
-    peer.vm.network "private_network", ip: "192.168.69.69"
+    peer.vm.network "private_network",
+      virtualbox__intnet: "vpnproxy-lan0",
+      ip: "192.168.69.69"
   end
 
   # Create two `proxy` vm's connected to `server` with each proxy also
