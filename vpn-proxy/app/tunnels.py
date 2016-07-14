@@ -6,12 +6,15 @@ import logging
 import tempfile
 import subprocess
 
+from .utils import memory_decorator
+
 
 REMOTE_IP = settings.VPN_SERVER_REMOTE_ADDRESS
 
 log = logging.getLogger(__name__)
 
 
+@memory_decorator
 def run(cmd, shell=False, verbosity=1):
     """Run given command and return output"""
     _cmd = ' '.join(cmd) if not isinstance(cmd, basestring) else cmd
