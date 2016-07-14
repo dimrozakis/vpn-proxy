@@ -31,9 +31,7 @@ install python-pip pip
 pip install -U django netaddr ipython
 
 $DIR/vpn-proxy/manage.py migrate
-
-echo 'from project.createsuperuser import main; main()' | \
-    $DIR/vpn-proxy/manage.py shell --plain
+$DIR/vpn-proxy/manage.py autosuperuser
 
 mkdir -p $DIR/tmp
 
