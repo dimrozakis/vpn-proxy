@@ -29,7 +29,6 @@ ALLOWED_HOSTS = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
 EXCLUDED_HOSTS = []
 VPN_SERVER_REMOTE_ADDRESS = '192.168.69.100'
 SERVER_PORT_START = 1195
-# SERVER_PORT_END = ''
 IFACE_PREFIX = 'vpn-tun'
 
 # Application definition
@@ -140,3 +139,18 @@ LOGGING = {
         },
     },
 }
+
+
+# Override configuration with files that extend this one in local_settings/
+
+import glob
+for path in sorted(glob.glob(os.path.join(BASE_DIR, 'conf.d',
+                                          '[a-zA-Z0-9]*.py'))):
+    execfile(path)
+
+
+# Raise error if required parameters missing
+
+for param in ('VPN_SERVER_REMOTE_ADDRESS', ):
+    if param not in dir():
+        raise NameError('Required parameter missing: "%s"' % param)
