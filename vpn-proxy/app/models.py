@@ -55,7 +55,7 @@ def choose_ip(routable_cidrs, excluded_cidrs=[],
                 address = IPAddress(client_addr) + 1
             else:
                 address = IPAddress(random.randrange(first + 1, last))
-            for _ in range(first + 1, last):
+            for _ in xrange(first + 1, last):
                 if address not in cidr or address == cidr.broadcast:
                     address = cidr.network + 1
                 try:
@@ -76,7 +76,7 @@ def check_ip(addr):
 def pick_port(_port):
     """Find next available port based on Forwarding.
     This function is used directly by views.py"""
-    for _ in range(60000):
+    for _ in xrange(60000):
         try:
             Forwarding.objects.get(loc_port=_port)
             _port += 1
