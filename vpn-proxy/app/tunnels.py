@@ -12,34 +12,13 @@ REMOTE_IP = settings.VPN_SERVER_REMOTE_ADDRESS
 log = logging.getLogger(__name__)
 
 
-def run(cmd, shell=False, verbosity=1, shell_close_fds=False):
-    """Run given command and return output
-
-    shell_close_fds will start a shell, close all file descriptors except
-    stdin, stdout, stderr and then run the specified command. This is needed
-    because by default, a subprocess will inherit all open file descriptors of
-    each parent. When we start OpenVPN, it inherits the open TCP port, and when
-    we stop and then restart the web server, OpenVPN still holds an open file
-    descriptor and the web server cannot bind to the port.
-    """
+def run(cmd, shell=False, verbosity=1):
+    """Run given command and return output"""
     _cmd = ' '.join(cmd) if not isinstance(cmd, basestring) else cmd
     if verbosity > 1:
         log.info("Running command '%s'.", _cmd)
     elif verbosity > 0:
         log.debug("Running command '%s'.", _cmd)
-    if shell_close_fds and False:
-        shell = True
-        cmd = """
-for fd in $(ls /proc/$$/fd); do
-  case "$fd" in
-    0|1|2|255)
-      ;;
-    *)
-      eval "exec $fd>&-"
-      ;;
-  esac
-done
-""" + _cmd
     try:
         output = subprocess.check_output(cmd, shell=shell,
                                          stderr=subprocess.STDOUT)
@@ -106,15 +85,13 @@ def start_openvpn(iface, force=True):
         run(['systemctl', 'status', 'openvpn@%s' % iface])
         if force:
             log.info("Restarting OpenVPN server for %s.", iface)
-            run(['systemctl', 'restart', 'openvpn@%s' % iface],
-                shell_close_fds=True)
+            run(['systemctl', 'restart', 'openvpn@%s' % iface])
         else:
             log.debug("OpenVPN server for %s already running.", iface)
             return False
     except subprocess.CalledProcessError:
         log.info("OpenVPN server for %s not running, starting.", iface)
-        run(['systemctl', 'start', 'openvpn@%s' % iface],
-            shell_close_fds=True)
+        run(['systemctl', 'start', 'openvpn@%s' % iface])
     return True
 
 
