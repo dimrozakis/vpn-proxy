@@ -56,7 +56,10 @@ EOF
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # Use ubuntu for all vm's. This would also work with debian/jessie64.
-  config.vm.box = "ubuntu/trusty64"
+  config.vm.box = "debian/jessie64"
+
+  # Don't mount local directory to vm's (excluding server)
+  config.vm.synced_folder ".", "/vagrant", disabled: true
 
   # Create a `server` vm, connected to 2 proxies.
   config.vm.define "server", primary: true do |server|
@@ -65,39 +68,19 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     server.vm.network "private_network",
       virtualbox__intnet: "vpnproxy-wan",
       ip: "192.168.75.100"
+    # Enable mounting of directory for `server` only.
+    server.vm.synced_folder ".", "/vagrant"
     server.vm.provision "shell",
       inline: "SOCKET=192.168.69.100:8080 /vagrant/scripts/install.sh"
     server.vm.provision "shell",
       run: "always",
-      inline: "service uwsgi start vpn-proxy"
-
-    # Set up openvpn server
-    (1..2).each do |i|
-      server.vm.provision "shell",
-        inline: "echo \"Attempting to create tunnel #{i}\" && " \
-                "curl -fsS -X POST -d cidrs='10.75.75.0/24' " \
-                "192.168.69.100:8080/ || echo \"Error..?\""
-      server.vm.provision "shell",
-        run: "always",
-        inline: "curl -fsS -X POST 192.168.69.100:8080/#{i}/"
-      server.vm.provision "shell",
-        run: "always",
-        inline: "curl -fsS 192.168.69.100:8080/#{i}/client_script/ " \
-                "> /vagrant/tmp/proxy#{i}.sh"
-    end
-    server.vm.post_up_message = TOPOLOGY
+      inline: "systemctl restart uwsgi"
   end
 
   # Create a `peer` vm, connected to the server using a host only network.
   config.vm.define "peer" do |peer|
     peer.vm.hostname = "peer"
     peer.vm.network "private_network", ip: "192.168.69.69"
-    (1..2).each do |i|
-      peer.vm.provision "shell",
-        run: "always",
-        inline: "curl -fsS 192.168.69.100:8080/#{i}/forwardings/10.75.75.75/80/" \
-                " > /vagrant/tmp/target#{i}_port.txt"
-    end
   end
 
   # Create two `proxy` vm's connected to `server` with each proxy also
@@ -114,9 +97,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       proxy.vm.network "private_network",
         virtualbox__intnet: "vpnproxy-lan#{2+i}",
         ip: "10.75.#{75+i}.10"
-      proxy.vm.provision "shell",
-        run: "always",
-        inline: "bash /vagrant/tmp/proxy#{i}.sh"
     end
   end
 
@@ -153,5 +133,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     inline: "mkdir -p /tmp/http && cd /tmp/http && " \
             "ln -sf /etc/hostname index.html ; " \
             "nohup python -m SimpleHTTPServer 80 >/dev/null 2>&1 </dev/null &"
+
+  # Install curl
+  config.vm.provision "shell",
+    inline: "apt-get update -q && " \
+            "apt-get install -yq --no-install-recommends curl"
 
 end

@@ -27,7 +27,7 @@ def run(cmd, shell=False, verbosity=1, shell_close_fds=False):
         log.info("Running command '%s'.", _cmd)
     elif verbosity > 0:
         log.debug("Running command '%s'.", _cmd)
-    if shell_close_fds:
+    if shell_close_fds and False:
         shell = True
         cmd = """
 for fd in $(ls /proc/$$/fd); do
@@ -103,17 +103,17 @@ def start_openvpn(iface, force=True):
     Use `force` to restart anyways
     """
     try:
-        run(['service', 'openvpn', 'status', iface])
+        run(['systemctl', 'status', 'openvpn@%s' % iface])
         if force:
             log.info("Restarting OpenVPN server for %s.", iface)
-            run(['service', 'openvpn', 'restart', iface],
+            run(['systemctl', 'restart', 'openvpn@%s' % iface],
                 shell_close_fds=True)
         else:
             log.debug("OpenVPN server for %s already running.", iface)
             return False
     except subprocess.CalledProcessError:
         log.info("OpenVPN server for %s not running, starting.", iface)
-        run(['service', 'openvpn', 'start', iface],
+        run(['systemctl', 'start', 'openvpn@%s' % iface],
             shell_close_fds=True)
     return True
 
@@ -121,9 +121,9 @@ def start_openvpn(iface, force=True):
 def stop_openvpn(iface):
     """Stop OpenVPN for given iface if running, return True if changed"""
     try:
-        run(['service', 'openvpn', 'status', iface])
+        run(['systemctl', 'status', 'openvpn@%s' % iface])
         log.info("OpenVPN server for %s is running, stopping.", iface)
-        run(['service', 'openvpn', 'stop', iface])
+        run(['systemctl', 'stop', 'openvpn@%s' % iface])
     except subprocess.CalledProcessError:
         log.debug("OpenVPN server for %s already stopped.", iface)
         return False
@@ -263,6 +263,8 @@ def get_client_conf(tunnel):
 def get_client_script(tunnel):
     return """#!/bin/bash
 
+set -ex
+
 install_pkg() {
     echo "Searching for apt-get, yum, or zypper.."
     if which apt-get > /dev/null; then
@@ -290,7 +292,11 @@ cat > %(conf_path)s << EOF
 %(conf)s
 EOF
 
-service openvpn start %(name)s
+if which systemctl > /dev/null; then
+    systemctl restart openvpn@%(name)s
+else
+    service openvpn restart %(name)s
+fi
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
 

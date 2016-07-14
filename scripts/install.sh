@@ -31,17 +31,20 @@ cat > /etc/uwsgi/apps-available/vpn-proxy.ini << EOF
 chdir = $DIR/vpn-proxy
 module = project.wsgi
 
-http-socket = $SOCKET
+http = $SOCKET
 processes = 4
 
 master = true
 vacuum = true
+close-on-exec = true
+close-on-exec2 = true
 
 uid = root
 gid = root
 EOF
 cat /etc/uwsgi/apps-available/vpn-proxy.ini
 ln -sf /etc/uwsgi/apps-available/vpn-proxy.ini /etc/uwsgi/apps-enabled/
-service uwsgi status vpn-proxy || service uwsgi start vpn-proxy
+systemctl restart uwsgi
+systemctl status uwsgi
 
 echo 1 > /proc/sys/net/ipv4/ip_forward

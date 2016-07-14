@@ -106,6 +106,7 @@ test_selfprobe() {
     assert_probe proxy1 10.75.75.10 proxy1
     assert_probe proxy1 10.75.76.10 proxy1
     assert_probe proxy1 $ip proxy1
+    echo ip $ip
     echo
     subheader "proxy2"
     columns
