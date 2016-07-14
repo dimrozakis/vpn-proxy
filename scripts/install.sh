@@ -2,13 +2,21 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
-if [ -z "$SOCKET" ]; then
+if [ -z "$WEB_SOCKET" ]; then
     echo "Please enter IP or IP:PORT (private) for the webserver:"
-    read SOCKET
+    read WEB_SOCKET
     echo
 fi
 
-echo "Installing vpn-proxy from $DIR, will listen to $SOCKET"
+if [ -z "$VPN_IP" ]; then
+    echo "Please enter public IP address for the VPN server:"
+    read VPN_IP
+    echo
+fi
+
+echo "Installing vpn-proxy from $DIR."
+echo "Webserver will be listening to $WEB_SOCKET."
+echo "VPN server will be listening to $VPN_IP."
 echo
 
 set -ex
@@ -19,6 +27,8 @@ apt-get install -yq --no-install-recommends \
 
 pip install -U pip
 pip install -U django netaddr ipython
+
+echo "VPN_SERVER_REMOTE_ADDRESS = \"$VPN_IP\"" > $DIR/vpn-proxy/conf.d/0000-vpn-ip.py
 
 $DIR/vpn-proxy/manage.py migrate
 $DIR/vpn-proxy/manage.py autosuperuser
@@ -31,7 +41,7 @@ cat > /etc/uwsgi/apps-available/vpn-proxy.ini << EOF
 chdir = $DIR/vpn-proxy
 module = project.wsgi
 
-http = $SOCKET
+http = $WEB_SOCKET
 processes = 4
 
 master = true
