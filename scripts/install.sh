@@ -55,4 +55,7 @@ ln -sf /etc/uwsgi/apps-available/vpn-proxy.ini /etc/uwsgi/apps-enabled/
 systemctl restart uwsgi
 systemctl status uwsgi
 
-echo 1 > /proc/sys/net/ipv4/ip_forward
+sed -i 's/^#\?\s*net.ipv4.ip_forward\s*=\s*.*$/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+grep '^net.ipv4.ip_forward=1$' /etc/sysctl.conf || \
+    echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+sysctl -p
