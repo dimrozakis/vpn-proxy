@@ -23,16 +23,17 @@ def run(cmd, shell=False, verbosity=1):
         output = subprocess.check_output(cmd, shell=shell,
                                          stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as exc:
-        log.error("Command '%s' exited with %d. Output was:\n%s",
+        log.error(u"Command '%s' exited with %d. Output was:\n%s",
                   _cmd, exc.returncode, exc.output)
         raise
     except OSError as exc:
         log.error("Command '%s' failed with OSError:%s", _cmd, exc)
         raise
-    if verbosity > 1:
-        log.info("Command '%s' output: %s", _cmd, output)
-    elif verbosity > 0:
-        log.debug("Command '%s' output: %s", _cmd, output)
+    if output:
+        if verbosity > 1:
+            log.info(u"Command '%s' output: %s", _cmd, output)
+        elif verbosity > 0:
+            log.debug(u"Command '%s' output: %s", _cmd, output)
     return output
 
 
@@ -82,7 +83,7 @@ def start_openvpn(iface, force=True):
     Use `force` to restart anyways
     """
     try:
-        run(['systemctl', 'status', 'openvpn@%s' % iface])
+        run(['systemctl', 'status', 'openvpn@%s' % iface], verbosity=0)
         if force:
             log.info("Restarting OpenVPN server for %s.", iface)
             run(['systemctl', 'restart', 'openvpn@%s' % iface])
@@ -98,7 +99,7 @@ def start_openvpn(iface, force=True):
 def stop_openvpn(iface):
     """Stop OpenVPN for given iface if running, return True if changed"""
     try:
-        run(['systemctl', 'status', 'openvpn@%s' % iface])
+        run(['systemctl', 'status', 'openvpn@%s' % iface], verbosity=0)
         log.info("OpenVPN server for %s is running, stopping.", iface)
         run(['systemctl', 'stop', 'openvpn@%s' % iface])
     except subprocess.CalledProcessError:
