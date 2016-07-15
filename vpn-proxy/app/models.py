@@ -180,6 +180,8 @@ class Tunnel(BaseModel):
 
     def _enable(self):
         start_tunnel(self)
+        for forwarding in self.forwarding_set.all():
+            forwarding.reset()
 
     def _disable(self):
         stop_tunnel(self)

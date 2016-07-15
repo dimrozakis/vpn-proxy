@@ -140,7 +140,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # Install curl
   config.vm.provision "shell",
-    inline: "apt-get update -q && " \
+    inline: "apt-get install -yq --no-install-recommends curl || " \
+            "apt-get update -q && " \
             "apt-get install -yq --no-install-recommends curl"
 
 end
