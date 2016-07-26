@@ -27,9 +27,9 @@ DEBUG = True
 # IP addressing settings
 ALLOWED_HOSTS = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
 EXCLUDED_HOSTS = []
-VPN_SERVER_REMOTE_ADDRESS = '192.168.69.100'
 SERVER_PORT_START = 1195
 IFACE_PREFIX = 'vpn-tun'
+IN_IFACE = 'eth0'
 
 # Application definition
 
@@ -151,6 +151,6 @@ for path in sorted(glob.glob(os.path.join(BASE_DIR, 'conf.d',
 
 # Raise error if required parameters missing
 
-for param in ('VPN_SERVER_REMOTE_ADDRESS', ):
+for param in ('VPN_SERVER_REMOTE_ADDRESS', 'SOURCE_CIDRS'):
     if param not in dir():
         raise NameError('Required parameter missing: "%s"' % param)
