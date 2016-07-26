@@ -24,14 +24,12 @@ SECRET_KEY = 'j85314t$+^le-kx$x&$&tb3*$_3q^lmz7y)vcq8e=@7jhi2tv8'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# CIDR/IP of the host generating the HTTP requests
-SOURCE_CIDRS = []
 # IP addressing settings
 ALLOWED_HOSTS = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
 EXCLUDED_HOSTS = []
-VPN_SERVER_REMOTE_ADDRESS = ''
 SERVER_PORT_START = 1195
 IFACE_PREFIX = 'vpn-tun'
+IN_IFACE = 'eth0'
 
 # Application definition
 
