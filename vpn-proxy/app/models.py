@@ -42,9 +42,7 @@ def choose_ip(routable_cidrs, excluded_cidrs=[],
     """
     exc_nets = routable_cidrs + excluded_cidrs + reserved_cidrs
     # make sure the exc_nets list does not contain any empty strings
-    for net in exc_nets:
-        if not net:
-            exc_nets.remove(net)
+    exc_nets = [exc_net for exc_net in exc_nets if exc_net]
     # a list of unique, non-overlapping supernets (to be excluded)
     exc_nets = IPSet(exc_nets).iter_cidrs()
     for network in ALLOWED_VPN_ADDRESSES:
