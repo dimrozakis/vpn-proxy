@@ -24,10 +24,12 @@ SECRET_KEY = 'j85314t$+^le-kx$x&$&tb3*$_3q^lmz7y)vcq8e=@7jhi2tv8'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# CIDR/IP of the host generating the HTTP requests
+SOURCE_CIDRS = []
 # IP addressing settings
 ALLOWED_HOSTS = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
 EXCLUDED_HOSTS = []
-VPN_SERVER_REMOTE_ADDRESS = '192.168.69.100'
+VPN_SERVER_REMOTE_ADDRESS = ''
 SERVER_PORT_START = 1195
 IFACE_PREFIX = 'vpn-tun'
 
@@ -151,6 +153,6 @@ for path in sorted(glob.glob(os.path.join(BASE_DIR, 'conf.d',
 
 # Raise error if required parameters missing
 
-for param in ('VPN_SERVER_REMOTE_ADDRESS', ):
+for param in ('VPN_SERVER_REMOTE_ADDRESS', 'SOURCE_CIDRS'):
     if param not in dir():
         raise NameError('Required parameter missing: "%s"' % param)

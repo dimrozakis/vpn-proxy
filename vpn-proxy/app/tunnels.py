@@ -7,6 +7,7 @@ import tempfile
 import subprocess
 
 
+SOURCE_CIDRS = ','.join(settings.SOURCE_CIDRS)
 REMOTE_IP = settings.VPN_SERVER_REMOTE_ADDRESS
 
 log = logging.getLogger(__name__)
@@ -294,18 +295,18 @@ def check_iptables(forwarding, job='-C', rule=''):
     PORT)
     MASQUERADE packets routed via the virtual interface"""
     mangle_rule = ['iptables', '-t', 'mangle', job, 'PREROUTING',
-                   '-p', 'tcp', '-s', str(forwarding.src_addr),
+                   '-p', 'tcp', '-s', str(SOURCE_CIDRS),
                    '--destination-port', str(forwarding.loc_port),
                    '-j', 'MARK', '--set-mark', str(forwarding.tunnel.id)]
 
     nat_rule = ['iptables', '-t', 'nat', job, 'PREROUTING',
-                '-p', 'tcp', '-s', str(forwarding.src_addr),
+                '-p', 'tcp', '-s', str(SOURCE_CIDRS),
                 '--destination-port', str(forwarding.loc_port),
                 '-j', 'DNAT', '--to-destination', str(forwarding.destination)]
 
     mask_rule = ['iptables', '-t', 'nat', job, 'POSTROUTING',
                  '-p', 'tcp', '-o', str(forwarding.tunnel.name),
-                 '-s', str(forwarding.src_addr),
+                 '-s', str(SOURCE_CIDRS),
                  '-d', str(forwarding.dst_addr),
                  '--destination-port', str(forwarding.dst_port),
                  '-j', 'MASQUERADE']
