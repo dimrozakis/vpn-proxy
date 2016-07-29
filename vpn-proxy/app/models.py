@@ -17,6 +17,7 @@ from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
 IFACE_PREFIX = settings.IFACE_PREFIX
 SERVER_PORT_START = settings.SERVER_PORT_START
+PORT_ALLOC_START, PORT_ALLOC_STOP = settings.PORT_ALLOC_RANGE
 ALLOWED_VPN_ADDRESSES = settings.ALLOWED_HOSTS
 EXCLUDED_VPN_ADDRESSES = settings.EXCLUDED_HOSTS
 
@@ -75,13 +76,16 @@ def check_ip(addr):
         raise ValidationError("Only private IPv4 networks are supported.")
 
 
-def pick_port(_port):
+def pick_port(PORT_ALLOC_START, PORT_ALLOC_STOP):
     """Find next available port based on Forwarding.
     This function is used directly by views.py"""
-    for _ in xrange(60000):
+    _port = random.randrange(PORT_ALLOC_START, PORT_ALLOC_STOP)
+    for _ in xrange(PORT_ALLOC_START, PORT_ALLOC_STOP):
         try:
             Forwarding.objects.get(loc_port=_port)
             _port += 1
+            if _port > PORT_ALLOC_STOP:
+                _port = PORT_ALLOC_START
         except Forwarding.DoesNotExist:
             return _port
 
