@@ -62,7 +62,10 @@ def connection(request, tunnel_id, target, port):
         forwarding.enable()
         return HttpResponse(forwarding.port)
     except Forwarding.DoesNotExist:
-        loc_port = pick_port()
+        try:
+            loc_port = pick_port()
+        except Exception as exc:
+            return HttpResponse(str(exc), status=409)
         forwarding = Forwarding(loc_port=loc_port, active=False, **entry)
         forwarding.save()
         forwarding.enable()

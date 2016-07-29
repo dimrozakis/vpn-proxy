@@ -14,7 +14,6 @@ from .tunnels import start_tunnel, stop_tunnel, gen_key
 from .tunnels import get_conf, get_client_conf, get_client_script
 from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
-
 IFACE_PREFIX = settings.IFACE_PREFIX
 SERVER_PORT_START = settings.SERVER_PORT_START
 PORT_ALLOC_START, PORT_ALLOC_STOP = settings.PORT_ALLOC_RANGE
@@ -79,15 +78,14 @@ def check_ip(addr):
 def pick_port(PORT_ALLOC_START, PORT_ALLOC_STOP):
     """Find next available port based on Forwarding.
     This function is used directly by views.py"""
-    _port = random.randrange(PORT_ALLOC_START, PORT_ALLOC_STOP)
-    for _ in xrange(PORT_ALLOC_START, PORT_ALLOC_STOP):
+    for _ in xrange(100):
+        _port = random.randrange(PORT_ALLOC_START, PORT_ALLOC_STOP)
         try:
             Forwarding.objects.get(loc_port=_port)
-            _port += 1
-            if _port > PORT_ALLOC_STOP:
-                _port = PORT_ALLOC_START
         except Forwarding.DoesNotExist:
             return _port
+    else:
+        raise Exception('Cloud not find available port for allocation')
 
 
 class BaseModel(models.Model):
