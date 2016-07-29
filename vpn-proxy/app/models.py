@@ -75,11 +75,11 @@ def check_ip(addr):
         raise ValidationError("Only private IPv4 networks are supported.")
 
 
-def pick_port(PORT_ALLOC_START, PORT_ALLOC_STOP):
+def pick_port(port_start=PORT_ALLOC_START, port_stop=PORT_ALLOC_STOP):
     """Find next available port based on Forwarding.
     This function is used directly by views.py"""
     for _ in xrange(100):
-        _port = random.randrange(PORT_ALLOC_START, PORT_ALLOC_STOP)
+        _port = random.randrange(port_start, port_stop)
         try:
             Forwarding.objects.get(loc_port=_port)
         except Forwarding.DoesNotExist:

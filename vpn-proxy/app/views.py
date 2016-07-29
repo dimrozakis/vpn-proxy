@@ -1,3 +1,6 @@
+import logging
+
+
 from django.http import HttpResponse
 from django.http import JsonResponse as _JsonResponse
 from django.shortcuts import get_object_or_404
@@ -8,6 +11,9 @@ from .models import choose_ip, pick_port
 
 import subprocess
 import pingparser
+
+
+log = logging.getLogger(__name__)
 
 
 class JsonResponse(_JsonResponse):
@@ -65,6 +71,7 @@ def connection(request, tunnel_id, target, port):
         try:
             loc_port = pick_port()
         except Exception as exc:
+            log.exception(exc)
             return HttpResponse(str(exc), status=409)
         forwarding = Forwarding(loc_port=loc_port, active=False, **entry)
         forwarding.save()
