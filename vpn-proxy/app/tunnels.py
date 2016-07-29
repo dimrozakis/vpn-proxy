@@ -7,7 +7,7 @@ import tempfile
 import subprocess
 
 
-SOURCE_CIDRS = ','.join(str(settings.SOURCE_CIDRS).split(' '))
+SOURCE_CIDRS = ','.join(settings.SOURCE_CIDRS)
 REMOTE_IP = settings.VPN_SERVER_REMOTE_ADDRESS
 IN_IFACE = settings.IN_IFACE
 

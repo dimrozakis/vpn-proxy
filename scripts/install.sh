@@ -15,7 +15,7 @@ if [ -z "$VPN_IP" ]; then
 fi
 
 if [ -z "$SOURCE_CIDRS" ]; then
-    echo "Please enter the CIDR(s) of the source host(s):"
+    echo "Please enter the CIDR(s) of the source host(s) (separated by space):"
     read SOURCE_CIDRS
     echo
 fi
@@ -42,7 +42,8 @@ pip install -U pip
 pip install -U django netaddr ipython
 
 echo "VPN_SERVER_REMOTE_ADDRESS = \"$VPN_IP\"" > $DIR/vpn-proxy/conf.d/0000-vpn-ip.py
-echo "SOURCE_CIDRS = \"$SOURCE_CIDRS\"" | tr -s ' ' > $DIR/vpn-proxy/conf.d/0001-src-cidrs.py
+SOURCE_CIDRS=`echo "$SOURCE_CIDRS" | sed 's/ /", "/g'`
+echo "SOURCE_CIDRS = [\"$SOURCE_CIDRS\"]" > $DIR/vpn-proxy/conf.d/0001-src-cidrs.py
 echo "IN_IFACE = \"$IN_IFACE\"" > $DIR/vpn-proxy/conf.d/0002-lan-iface.py
 
 $DIR/vpn-proxy/manage.py migrate
