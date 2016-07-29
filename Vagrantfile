@@ -73,7 +73,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     # Enable mounting of directory for `server` only.
     server.vm.synced_folder ".", "/vagrant"
     server.vm.provision "shell",
-      inline: "WEB_SOCKET=192.168.69.100:8080 VPN_IP=192.168.75.100 /vagrant/scripts/install.sh"
+      inline: "WEB_SOCKET=192.168.69.100:8080 " \
+              "VPN_IP=192.168.75.100 " \
+              "SOURCE_CIDRS=192.168.69.0/24 /vagrant/scripts/install.sh"
     server.vm.provision "shell",
       run: "always",
       inline: "systemctl restart uwsgi"
