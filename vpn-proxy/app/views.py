@@ -52,7 +52,6 @@ def script(request, tunel_id):
 @require_http_methods(['GET'])
 def connection(request, tunnel_id, target, port):
     entry = {
-        'src_addr': request.META['REMOTE_ADDR'],
         'dst_addr': target,
         'dst_port': int(port),
         'tunnel': get_object_or_404(Tunnel, pk=tunnel_id),

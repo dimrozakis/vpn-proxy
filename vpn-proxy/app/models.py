@@ -215,7 +215,6 @@ class Forwarding(BaseModel):
     dst_addr = models.GenericIPAddressField(protocol='IPv4')
     dst_port = models.IntegerField()
     loc_port = models.IntegerField(unique=True)
-    src_addr = models.GenericIPAddressField(protocol='IPv4')
 
     @property
     def port(self):
@@ -234,19 +233,14 @@ class Forwarding(BaseModel):
         del_fwmark(self)
 
     def __str__(self):
-        return '%s at local port %s via %s -> %s:%s' % (self.src_addr,
-                                                        self.port,
-                                                        self.tunnel.name,
-                                                        self.dst_addr,
-                                                        self.dst_port)
+        return 'Local port %s via %s -> %s' % (self.port, self.tunnel.name,
+                                               self.destination)
 
     def to_dict(self):
         return {
             'id': self.id,
-            'src_addr': self.src_addr,
             'dst_addr': self.dst_addr,
             'dst_port': self.dst_port,
-            'dst_pair': self.destination,
             'loc_port': self.loc_port,
             'tunnel_id': self.tunnel.id,
             'tunnel_name': self.tunnel.name,
