@@ -20,6 +20,12 @@ if [ -z "$SOURCE_CIDRS" ]; then
     echo
 fi
 
+if [ -z "$IN_IFACE" ]; then
+    echo "Please enter the lan interface of the server:"
+    read IN_IFACE
+    echo
+fi
+
 echo "Installing vpn-proxy from $DIR."
 echo "Webserver will be listening to $WEB_SOCKET."
 echo "VPN server will be listening to $VPN_IP."
@@ -37,6 +43,7 @@ pip install -U django netaddr ipython
 
 echo "VPN_SERVER_REMOTE_ADDRESS = \"$VPN_IP\"" > $DIR/vpn-proxy/conf.d/0000-vpn-ip.py
 echo "SOURCE_CIDRS = \"$SOURCE_CIDRS\"" | tr -s ' ' > $DIR/vpn-proxy/conf.d/0001-src-cidrs.py
+echo "IN_IFACE = \"$IN_IFACE\"" > $DIR/vpn-proxy/conf.d/0002-lan-iface.py
 
 $DIR/vpn-proxy/manage.py migrate
 $DIR/vpn-proxy/manage.py autosuperuser
