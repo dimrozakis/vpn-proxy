@@ -14,9 +14,9 @@ from .tunnels import start_tunnel, stop_tunnel, gen_key
 from .tunnels import get_conf, get_client_conf, get_client_script
 from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
-
 IFACE_PREFIX = settings.IFACE_PREFIX
 SERVER_PORT_START = settings.SERVER_PORT_START
+PORT_ALLOC_START, PORT_ALLOC_STOP = settings.PORT_ALLOC_RANGE
 ALLOWED_VPN_ADDRESSES = settings.ALLOWED_HOSTS
 EXCLUDED_VPN_ADDRESSES = settings.EXCLUDED_HOSTS
 
@@ -75,15 +75,17 @@ def check_ip(addr):
         raise ValidationError("Only private IPv4 networks are supported.")
 
 
-def pick_port(_port):
+def pick_port(port_start=PORT_ALLOC_START, port_stop=PORT_ALLOC_STOP):
     """Find next available port based on Forwarding.
     This function is used directly by views.py"""
-    for _ in xrange(60000):
+    for _ in xrange(100):
+        _port = random.randrange(port_start, port_stop)
         try:
             Forwarding.objects.get(loc_port=_port)
-            _port += 1
         except Forwarding.DoesNotExist:
             return _port
+    else:
+        raise Exception('Cloud not find available port for allocation')
 
 
 class BaseModel(models.Model):
@@ -215,7 +217,6 @@ class Forwarding(BaseModel):
     dst_addr = models.GenericIPAddressField(protocol='IPv4')
     dst_port = models.IntegerField()
     loc_port = models.IntegerField(unique=True)
-    src_addr = models.GenericIPAddressField(protocol='IPv4')
 
     @property
     def port(self):
@@ -234,19 +235,14 @@ class Forwarding(BaseModel):
         del_fwmark(self)
 
     def __str__(self):
-        return '%s at local port %s via %s -> %s:%s' % (self.src_addr,
-                                                        self.port,
-                                                        self.tunnel.name,
-                                                        self.dst_addr,
-                                                        self.dst_port)
+        return 'Local port %s via %s -> %s' % (self.port, self.tunnel.name,
+                                               self.destination)
 
     def to_dict(self):
         return {
             'id': self.id,
-            'src_addr': self.src_addr,
             'dst_addr': self.dst_addr,
             'dst_port': self.dst_port,
-            'dst_pair': self.destination,
             'loc_port': self.loc_port,
             'tunnel_id': self.tunnel.id,
             'tunnel_name': self.tunnel.name,

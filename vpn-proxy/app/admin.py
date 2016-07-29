@@ -4,12 +4,11 @@ from .models import Tunnel, Forwarding
 
 
 class ForwardingAdmin(admin.ModelAdmin):
-    fields = ['active', 'tunnel', 'dst_addr', 'dst_port', 'loc_port',
-              'src_addr']
+    fields = ['active', 'tunnel', 'dst_addr', 'dst_port', 'loc_port']
     readonly_fields = ['tunnel', 'dst_addr', 'dst_port', 'loc_port',
-                       'src_addr', 'updated_at', 'created_at']
+                       'updated_at', 'created_at']
     list_display = ['id', 'tunnel', 'dst_addr', 'dst_port', 'loc_port',
-                    'src_addr', 'active', 'created_at']
+                    'active', 'created_at']
     actions = ['enable', 'disable']
     list_filter = ['active', 'tunnel', 'created_at', 'updated_at']
 
@@ -17,7 +16,7 @@ class ForwardingAdmin(admin.ModelAdmin):
         """If edit, enable display of readonly fields"""
         if obj:  # obj is not None, so this is an edit
             return ['active', 'tunnel', 'dst_addr', 'dst_port', 'loc_port',
-                    'src_addr', 'created_at', 'updated_at']
+                    'created_at', 'updated_at']
         return self.fields
 
     def get_readonly_fields(self, request, obj=None):
@@ -37,7 +36,7 @@ class ForwardingAdmin(admin.ModelAdmin):
 
 class AddForwardingInline(admin.TabularInline):
     model = Forwarding
-    fields = ['dst_addr', 'dst_port', 'loc_port', 'src_addr', 'active']
+    fields = ['dst_addr', 'dst_port', 'loc_port', 'active']
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -48,8 +47,8 @@ class AddForwardingInline(admin.TabularInline):
 
 class EditForwardingInline(admin.TabularInline):
     model = Forwarding
-    fields = ['dst_addr', 'dst_port', 'loc_port', 'src_addr', 'active']
-    readonly_fields = ['dst_addr', 'dst_port', 'loc_port', 'src_addr']
+    fields = ['dst_addr', 'dst_port', 'loc_port', 'active']
+    readonly_fields = ['dst_addr', 'dst_port', 'loc_port']
 
     def has_add_permission(self, request):
         return False

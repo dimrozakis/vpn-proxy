@@ -1,3 +1,6 @@
+import logging
+
+
 from django.http import HttpResponse
 from django.http import JsonResponse as _JsonResponse
 from django.shortcuts import get_object_or_404
@@ -8,6 +11,9 @@ from .models import choose_ip, pick_port
 
 import subprocess
 import pingparser
+
+
+log = logging.getLogger(__name__)
 
 
 class JsonResponse(_JsonResponse):
@@ -52,7 +58,6 @@ def script(request, tunel_id):
 @require_http_methods(['GET'])
 def connection(request, tunnel_id, target, port):
     entry = {
-        'src_addr': request.META['REMOTE_ADDR'],
         'dst_addr': target,
         'dst_port': int(port),
         'tunnel': get_object_or_404(Tunnel, pk=tunnel_id),
@@ -63,10 +68,14 @@ def connection(request, tunnel_id, target, port):
         forwarding.enable()
         return HttpResponse(forwarding.port)
     except Forwarding.DoesNotExist:
-        loc_port = pick_port(int(port) + 5000 + int(tunnel_id))
-        forwarding = Forwarding(loc_port=loc_port, **entry)
-        forwarding.enable()
+        try:
+            loc_port = pick_port()
+        except Exception as exc:
+            log.exception(exc)
+            return HttpResponse(str(exc), status=409)
+        forwarding = Forwarding(loc_port=loc_port, active=False, **entry)
         forwarding.save()
+        forwarding.enable()
     return HttpResponse(forwarding.port)
 
 
