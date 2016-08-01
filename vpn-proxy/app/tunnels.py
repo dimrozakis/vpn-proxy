@@ -228,7 +228,8 @@ def get_conf(tunnel):
                       'dev-type tun',
                       'port %s' % tunnel.port,
                       'ifconfig %s %s' % (tunnel.server, tunnel.client),
-                      'secret %s' % tunnel.key_path])
+                      'secret %s' % tunnel.key_path,
+                      'proto %s' % tunnel.server_protocol])
 
 
 def get_client_conf(tunnel):
@@ -237,7 +238,8 @@ def get_client_conf(tunnel):
                       'dev-type tun',
                       'port %s' % tunnel.port,
                       'ifconfig %s %s' % (tunnel.client, tunnel.server),
-                      'secret %s' % tunnel.key_path])
+                      'secret %s' % tunnel.key_path,
+                      'proto %s' % tunnel.client_protocol])
 
 
 def get_client_script(tunnel):

@@ -32,6 +32,8 @@ def tunnels(request):
         client = choose_ip(cidrs, excluded_cidrs)
         params['client'] = client
         params['server'] = choose_ip(cidrs, excluded_cidrs, client_addr=client)
+        if 'proto' in request.POST:
+            params['protocol'] = request.POST['proto']
         tun = Tunnel(**params)
         tun.save()
         return JsonResponse(tun.to_dict())
