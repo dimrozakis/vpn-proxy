@@ -145,7 +145,8 @@ class Tunnel(BaseModel):
     client = models.GenericIPAddressField(protocol='IPv4',
                                           validators=[check_ip])
     key = models.TextField(default=gen_key, blank=False, unique=True)
-    protocol = models.CharField(default='udp', choices=('udp', 'tcp'))
+    protocol = models.CharField(max_length=3, default='udp', 
+                                choices=[('udp', 'UDP'), ('tcp', 'TCP')])
 
     @property
     def name(self):
