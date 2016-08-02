@@ -239,7 +239,8 @@ def get_client_conf(tunnel):
                       'port %s' % tunnel.port,
                       'ifconfig %s %s' % (tunnel.client, tunnel.server),
                       'secret %s' % tunnel.key_path,
-                      'proto %s' % tunnel.client_protocol])
+                      'proto %s' % tunnel.client_protocol,
+                      'keepalive 10 120'])
 
 
 def get_client_script(tunnel):
