@@ -228,7 +228,8 @@ def get_conf(tunnel):
                       'dev-type tun',
                       'port %s' % tunnel.port,
                       'ifconfig %s %s' % (tunnel.server, tunnel.client),
-                      'secret %s' % tunnel.key_path])
+                      'secret %s' % tunnel.key_path,
+                      'proto %s' % tunnel.server_protocol])
 
 
 def get_client_conf(tunnel):
@@ -237,7 +238,9 @@ def get_client_conf(tunnel):
                       'dev-type tun',
                       'port %s' % tunnel.port,
                       'ifconfig %s %s' % (tunnel.client, tunnel.server),
-                      'secret %s' % tunnel.key_path])
+                      'secret %s' % tunnel.key_path,
+                      'proto %s' % tunnel.client_protocol,
+                      'keepalive 10 120'])
 
 
 def get_client_script(tunnel):
@@ -257,7 +260,6 @@ install_pkg() {
         echo "Could not find a package management tool"
         exit 1
     fi
-
 }
 
 if ! which openvpn > /dev/null; then
@@ -280,9 +282,9 @@ fi
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
-ifaces=`ip link show | grep '^[0-9]*:' | awk '{print $2}' | sed 's/:$//'`
-eth_ifaces=`echo "$ifaces" | grep ^eth`
-for iface in $eth_ifaces; do
+ifaces=`ip link show | grep '^[0-9]*:' | awk '{print $2}' | sed 's/:$//' | \
+    grep -v ^lo$`
+for iface in $ifaces; do
     iptables -t nat -A POSTROUTING -o $iface -j MASQUERADE
 done
 """ % {'key_path': tunnel.key_path, 'conf_path': tunnel.conf_path,

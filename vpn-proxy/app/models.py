@@ -145,6 +145,8 @@ class Tunnel(BaseModel):
     client = models.GenericIPAddressField(protocol='IPv4',
                                           validators=[check_ip])
     key = models.TextField(default=gen_key, blank=False, unique=True)
+    protocol = models.CharField(max_length=3, default='udp', 
+                                choices=[('udp', 'UDP'), ('tcp', 'TCP')])
 
     @property
     def name(self):
@@ -182,6 +184,14 @@ class Tunnel(BaseModel):
     def client_script(self):
         return get_client_script(self)
 
+    @property
+    def server_protocol(self):
+        return 'tcp-server' if self.protocol == 'tcp' else 'udp'
+
+    @property
+    def client_protocol(self):
+        return 'tcp-client' if self.protocol == 'tcp' else 'udp'
+
     def _enable(self):
         start_tunnel(self)
         for forwarding in self.forwarding_set.all():
@@ -200,6 +210,7 @@ class Tunnel(BaseModel):
             'name': self.name,
             'server': self.server,
             'client': self.client,
+            'protocol': self.protocol,
             'port': self.port,
             'key': self.key,
             'active': self.active,
