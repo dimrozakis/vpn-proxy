@@ -3,7 +3,7 @@ from app.models import Tunnel
 
 
 class Command(BaseCommand):
-    help = "Create superuser if missing (Non Interactive)."
+    help = "Reset Tunnel(s)"
 
     def add_arguments(self, parser):
         parser.add_argument('tunnel', nargs='*', type=int)
