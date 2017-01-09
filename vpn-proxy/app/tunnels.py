@@ -297,22 +297,28 @@ def check_iptables(forwarding, job='-C', rule=''):
     DNAT incoming packets in order to force forwarding --> private host (IP,
     PORT)
     MASQUERADE packets routed via the virtual interface"""
-    mangle_rule = ['iptables', '-t', 'mangle', job, 'PREROUTING',
-                   '-p', 'tcp', '-i', str(IN_IFACE), '-s', str(SOURCE_CIDRS),
+    mangle_rule = ['iptables', '-w', '-t', 'mangle', job, 'PREROUTING',
+                   '-p', 'tcp',
+                   '-i', str(IN_IFACE),
+                   '-s', str(SOURCE_CIDRS),
                    '--destination-port', str(forwarding.loc_port),
                    '-j', 'MARK', '--set-mark', str(forwarding.tunnel.id)]
 
-    nat_rule = ['iptables', '-t', 'nat', job, 'PREROUTING',
-                '-p', 'tcp', '-i', str(IN_IFACE), '-s', str(SOURCE_CIDRS),
+    nat_rule = ['iptables', '-w', '-t', 'nat', job, 'PREROUTING',
+                '-p', 'tcp',
+                '-i', str(IN_IFACE),
+                '-s', str(SOURCE_CIDRS),
                 '--destination-port', str(forwarding.loc_port),
                 '-j', 'DNAT', '--to-destination', str(forwarding.destination)]
 
-    mask_rule = ['iptables', '-t', 'nat', job, 'POSTROUTING',
-                 '-p', 'tcp', '-o', str(forwarding.tunnel.name),
+    mask_rule = ['iptables', '-w', '-t', 'nat', job, 'POSTROUTING',
+                 '-p', 'tcp',
+                 '-o', str(forwarding.tunnel.name),
                  '-s', str(SOURCE_CIDRS),
                  '-d', str(forwarding.dst_addr),
                  '--destination-port', str(forwarding.dst_port),
                  '-j', 'MASQUERADE']
+
     rules = {'mangle': mangle_rule, 'nat': nat_rule, 'mask': mask_rule}
     if job == '-C' and rule == '':
         exitcodes = {}
