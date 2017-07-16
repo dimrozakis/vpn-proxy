@@ -1,3 +1,4 @@
 django
 netaddr
-ipython
+ipython==5
+https://github.com/ssteinerx/pingparser/archive/master.zip

@@ -39,7 +39,7 @@ apt-get install -yq --no-install-recommends \
     python python-pip openvpn uwsgi uwsgi-plugin-python
 
 pip install -U pip
-pip install -U django netaddr ipython
+pip install -r $DIR/vpn-proxy/requirements.txt
 
 echo "VPN_SERVER_REMOTE_ADDRESS = \"$VPN_IP\"" > $DIR/vpn-proxy/conf.d/0000-vpn-ip.py
 SOURCE_CIDRS=`echo "$SOURCE_CIDRS" | sed 's/ /", "/g'`
