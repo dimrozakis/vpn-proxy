@@ -88,7 +88,15 @@ def ping(request, tunnel_id, target):
         hostname = tunnel.client
     else:
         hostname = target
-    cmd = ['ping', '-c', '10', '-i', '0.4', '-W', '1', '-q', '-I',
+    pkts = 10
+    if request.GET.get('pkts'):
+        try:
+            pkts = int(request.GET['pkts'])
+        except (ValueError, TypeError) as exc:
+            log.warning("Couldn't cast pkts param (%s) to int: %r",
+                        request.GET['pkts'], exc)
+
+    cmd = ['ping', '-c', str(pkts), '-i', '0.4', '-W', '1', '-q', '-I',
            str(tunnel.name), str(hostname)]
     ping_output = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     ping_parsed = pingparser.parse(ping_output.stdout.read())
