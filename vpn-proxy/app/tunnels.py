@@ -253,7 +253,7 @@ install_pkg() {
     if which apt-get > /dev/null; then
         apt-get update && apt-get install -y $1
     elif which yum > /dev/null; then
-        yum update && yum install -y $1
+        yum update -y && yum install -y $1
     elif which zypper > /dev/null; then
         zypper refresh && zypper install $1
     else
