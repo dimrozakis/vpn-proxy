@@ -36,10 +36,11 @@ set -ex
 
 apt-get update -q
 apt-get install -yq --no-install-recommends \
-    python python-pip openvpn uwsgi uwsgi-plugin-python
+    python python-pip openvpn uwsgi uwsgi-plugin-python \
+    python-dev build-essential
 
 pip install -U pip
-pip install -r $DIR/vpn-proxy/requirements.txt
+pip install -r $DIR/requirements.txt
 
 echo "VPN_SERVER_REMOTE_ADDRESS = \"$VPN_IP\"" > $DIR/vpn-proxy/conf.d/0000-vpn-ip.py
 SOURCE_CIDRS=`echo "$SOURCE_CIDRS" | sed 's/ /", "/g'`
