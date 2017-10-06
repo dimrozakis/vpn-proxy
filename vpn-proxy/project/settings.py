@@ -24,12 +24,25 @@ SECRET_KEY = 'j85314t$+^le-kx$x&$&tb3*$_3q^lmz7y)vcq8e=@7jhi2tv8'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# IP addressing settings
-ALLOWED_HOSTS = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
-EXCLUDED_HOSTS = []
+# A list of client IPs and hostnames the application may serve
+# See https://docs.djangoproject.com/en/1.11/ref/settings/#allowed-hosts
+ALLOWED_HOSTS = ['*']
+
+# IP address allocation range
+ALLOWED_CIDRS = ['10.0.0.0/8', '172.17.0.0/12', '192.168.0.0/16']
+RESERVED_CIDRS = []
+
+# The minimum port number OpenVPN may listen on for incoming connections
 SERVER_PORT_START = 1195
+
+# The range of available ports to be allocated on the server-side in order
+# to proxy requests over VPN
 PORT_ALLOC_RANGE = (5000, 10000)
+
+# VPN interface name prefix
 IFACE_PREFIX = 'vpn-tun'
+
+# The interface that may accept proxying requests
 IN_IFACE = 'eth0'
 
 # Application definition

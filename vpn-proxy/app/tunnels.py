@@ -8,8 +8,7 @@ import subprocess
 
 
 SOURCE_CIDRS = ','.join(settings.SOURCE_CIDRS)
-REMOTE_IP = settings.VPN_SERVER_REMOTE_ADDRESS
-IN_IFACE = settings.IN_IFACE
+
 
 log = logging.getLogger(__name__)
 
@@ -233,7 +232,7 @@ def get_conf(tunnel):
 
 
 def get_client_conf(tunnel):
-    return '\n'.join(['remote %s' % REMOTE_IP,
+    return '\n'.join(['remote %s' % settings.VPN_SERVER_REMOTE_ADDRESS,
                       'dev %s' % tunnel.name,
                       'dev-type tun',
                       'port %s' % tunnel.port,
@@ -299,14 +298,14 @@ def check_iptables(forwarding, job='-C', rule=''):
     MASQUERADE packets routed via the virtual interface"""
     mangle_rule = ['iptables', '-w', '-t', 'mangle', job, 'PREROUTING',
                    '-p', 'tcp',
-                   '-i', str(IN_IFACE),
+                   '-i', str(settings.IN_IFACE),
                    '-s', str(SOURCE_CIDRS),
                    '--destination-port', str(forwarding.loc_port),
                    '-j', 'MARK', '--set-mark', str(forwarding.tunnel.id)]
 
     nat_rule = ['iptables', '-w', '-t', 'nat', job, 'PREROUTING',
                 '-p', 'tcp',
-                '-i', str(IN_IFACE),
+                '-i', str(settings.IN_IFACE),
                 '-s', str(SOURCE_CIDRS),
                 '--destination-port', str(forwarding.loc_port),
                 '-j', 'DNAT', '--to-destination', str(forwarding.destination)]
