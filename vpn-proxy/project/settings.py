@@ -57,7 +57,7 @@ INSTALLED_APPS = [
     'app',
 ]
 
-MIDDLEWARE_CLASSES = [
+MIDDLEWARE = [
     'app.middleware.cidr.CidrMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

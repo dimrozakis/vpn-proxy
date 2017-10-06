@@ -23,16 +23,19 @@ class CidrMiddleware(object):
 
     """
 
-    def process_request(self, request):
+    def __init__(self, get_response):
+        # One-time configuration & initialization, when the web server starts.
+        self.get_response = get_response
 
-        # Get the HTTP host from the request headers.
+        self.cidrs = [
+            netaddr.IPNetwork(cidr) for cidr in settings.SOURCE_CIDRS
+        ]
+
+    def __call__(self, request):
+        # Get the source IP address from the request headers.
         host = request.META['REMOTE_ADDR']
-
-        host = netaddr.IPAddress(host)
-        cidrs = [netaddr.IPNetwork(cidr) for cidr in settings.SOURCE_CIDRS]
-
-        for cidr in cidrs:
-            if host in cidr:
-                return
+        for cidr in self.cidrs:
+            if netaddr.IPAddress(host) in cidr:
+                return self.get_response(request)
         log.critical('Connection attempt from unauthorized source %s', host)
-        raise Http404
+        raise Http404()
