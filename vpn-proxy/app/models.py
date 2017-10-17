@@ -14,38 +14,37 @@ from .tunnels import start_tunnel, stop_tunnel, gen_key
 from .tunnels import get_conf, get_client_conf, get_client_script
 from .tunnels import add_iptables, del_iptables, add_fwmark, del_fwmark
 
-IFACE_PREFIX = settings.IFACE_PREFIX
-SERVER_PORT_START = settings.SERVER_PORT_START
+
 PORT_ALLOC_START, PORT_ALLOC_STOP = settings.PORT_ALLOC_RANGE
-ALLOWED_VPN_ADDRESSES = settings.ALLOWED_HOSTS
-EXCLUDED_VPN_ADDRESSES = settings.EXCLUDED_HOSTS
+
 
 log = logging.getLogger(__name__)
 
 
-def choose_ip(routable_cidrs, excluded_cidrs=[],
-              reserved_cidrs=EXCLUDED_VPN_ADDRESSES, client_addr=''):
-    """
-    Find available IP addresses for both sides of a VPN Tunnel (client &
-    server) based on a list of available_cidrs. This method iterates over the
-    CIDRs contained in ALLOWED_VPN_ADDRESSES, while excluding the lists of
-    routable_cidrs, excluded_cidrs, and reserved_cidrs.
-    :param routable_cidrs: the CIDRs that are to be routed over the
-    particular VPN Tunnel
-    :param excluded_cidrs: an optional CIDRs list provided by the end user
-    in order to be excluded from the address allocation process
-    :param reserved_cidrs: CIDRs reserved for local usage
-    :param client_addr: since the client IP is allocated first, the client_addr
-    is used to attempt to pick an adjacent IP address for the server side.
-    Alternatively, this is an empty string
+def choose_ip(routable_cidrs, excluded_cidrs=[], client_addr=''):
+    """Find available IP addresses for both sides of a VPN Tunnel.
+
+    This method iterates over the settings.ALLOWED_CIDRS list in order to
+    allocate available IP address to both the client and server side of a
+    VPN tunnel. CIDRs that belong to the lists of settings.RESERVED_CIDRS,
+    `routable_cidrs`, and `excluded_cidrs` are excluded from the allocation
+    process.
+
+    :param routable_cidrs: the CIDRs that are to be routed over a VPN tunnel
+    :param excluded_cidrs: an optional list of CIDRs to be excluded from the
+                           address allocation process
+    :param client_addr:    the `client_addr` is used to attempt to pick an
+                           adjacent IP address for the server side
+
     :return: a private IP address
+
     """
-    exc_nets = routable_cidrs + excluded_cidrs + reserved_cidrs
+    exc_nets = routable_cidrs + excluded_cidrs + settings.RESERVED_CIDRS
     # make sure the exc_nets list does not contain any empty strings
     exc_nets = [exc_net for exc_net in exc_nets if exc_net]
     # a list of unique, non-overlapping supernets (to be excluded)
     exc_nets = IPSet(exc_nets).iter_cidrs()
-    for network in ALLOWED_VPN_ADDRESSES:
+    for network in settings.ALLOWED_CIDRS:
         available_cidrs = IPSet(IPNetwork(network))
         for exc_net in exc_nets:
             available_cidrs.remove(exc_net)
@@ -145,16 +144,16 @@ class Tunnel(BaseModel):
     client = models.GenericIPAddressField(protocol='IPv4',
                                           validators=[check_ip])
     key = models.TextField(default=gen_key, blank=False, unique=True)
-    protocol = models.CharField(max_length=3, default='udp', 
+    protocol = models.CharField(max_length=3, default='udp',
                                 choices=[('udp', 'UDP'), ('tcp', 'TCP')])
 
     @property
     def name(self):
-        return '%s%s' % (IFACE_PREFIX, self.id)
+        return '%s%s' % (settings.IFACE_PREFIX, self.id)
 
     @property
     def port(self):
-        return (SERVER_PORT_START + self.id - 1) if self.id else None
+        return (settings.SERVER_PORT_START + self.id - 1) if self.id else None
 
     @property
     def rtable(self):
